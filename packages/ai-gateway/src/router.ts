@@ -233,6 +233,10 @@ export class AiGateway {
       if (spec.mockMode === 'rate_limited') throw new ProviderError('HTTP 429 simulated rate limit', 429);
       return mockReply(req);
     }
+    // Offline test mode must never touch the network: tests and the eval gate run
+    // without keys and must stay deterministic. isProviderConfigured() lets these
+    // specs through in offline mode, so the short-circuit belongs here.
+    if (this.offline) return mockReply(req);
     const timeout = req.timeoutMs ?? spec.timeoutMs ?? 25_000;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
