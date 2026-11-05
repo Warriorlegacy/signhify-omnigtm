@@ -155,7 +155,9 @@ CREATE INDEX IF NOT EXISTS idx_usage_created ON llm_usage(created_at);
 CREATE TABLE IF NOT EXISTS llm_cache (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,
-  expires_at INTEGER NOT NULL,
+  -- Millisecond epoch. BIGINT, not INTEGER: Postgres INTEGER tops out at
+  -- 2147483647, so an ms timestamp overflowed and every cache write threw.
+  expires_at BIGINT NOT NULL,
   created_at TEXT NOT NULL
 );
 
@@ -286,6 +288,13 @@ export async function getDriver(): Promise<Driver> {
     const url = optionalSecret('DATABASE_URL');
     driverPromise = (url ? createPostgresDriver(url) : createSqliteDriver(dbFile())).then(async (driver) => {
       await driver.exec(SCHEMA);
+      // CREATE TABLE IF NOT EXISTS will not widen a column that already exists,
+      // so an older Postgres database keeps INTEGER. Idempotent repair.
+      if (driver.dialect === 'postgres') {
+        await driver.exec('ALTER TABLE llm_cache ALTER COLUMN expires_at TYPE BIGINT').catch((error) => {
+          log.warn('llm_cache.expires_at repair failed', { message: error instanceof Error ? error.message : String(error) });
+        });
+      }
       log.info('database ready', { dialect: driver.dialect });
       return driver;
     });
@@ -609,17 +618,22 @@ export class Repo {
   }
 
   async recordUsage(u: { provider: string; model: string; task: string; latencyMs: number; ok: boolean; cached: boolean; error?: string }): Promise<void> {
-    await this.driver.run('INSERT INTO llm_usage (id, provider, model, task, latency_ms, ok, cached, error, created_at) VALUES (?,?,?,?,?,?,?,?,?)', [
-      uuid(),
-      u.provider,
-      u.model,
-      u.task,
-      u.latencyMs,
-      bool(u.ok),
-      bool(u.cached),
-      u.error ? u.error.slice(0, 500) : null,
-      nowIso(),
-    ]);
+    // Telemetry must never fail a request that already produced a completion.
+    try {
+      await this.driver.run('INSERT INTO llm_usage (id, provider, model, task, latency_ms, ok, cached, error, created_at) VALUES (?,?,?,?,?,?,?,?,?)', [
+        uuid(),
+        u.provider,
+        u.model,
+        u.task,
+        Math.max(0, Math.round(u.latencyMs)),
+        bool(u.ok),
+        bool(u.cached),
+        u.error ? u.error.slice(0, 500) : null,
+        nowIso(),
+      ]);
+    } catch (error) {
+      log.warn('recordUsage failed', { provider: u.provider, message: error instanceof Error ? error.message : String(error) });
+    }
   }
 
   async usageByProvider(days = 7): Promise<{ provider: string; calls: number; avg_latency: number; failures: number }[]> {
@@ -642,12 +656,17 @@ export class Repo {
   }
 
   async cachePut(key: string, value: unknown, ttlSeconds: number): Promise<void> {
-    await this.driver.run('INSERT INTO llm_cache (key, value, expires_at, created_at) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at', [
-      key,
-      json(value),
-      Date.now() + ttlSeconds * 1000,
-      nowIso(),
-    ]);
+    // A cache miss is cheap; a failed cache write must not discard a good reply.
+    try {
+      await this.driver.run('INSERT INTO llm_cache (key, value, expires_at, created_at) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at', [
+        key,
+        json(value),
+        Date.now() + ttlSeconds * 1000,
+        nowIso(),
+      ]);
+    } catch (error) {
+      log.warn('cachePut failed', { message: error instanceof Error ? error.message : String(error) });
+    }
   }
 
   // ---------------------------------------------------------------- misc
