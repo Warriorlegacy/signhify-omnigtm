@@ -32,16 +32,25 @@ secrets (they must be re-entered in Settings).
 - Health 200, SQLite dialect, auth enforced (unauthenticated API returns 401)
 - Login sets the session cookie; dashboard pages return 200
 - Eval gate: **7/7**, faithfulness 1.0, p95 4 ms
-- 60 FPS preview build: 480 frames, 2.41 MB, manifest + `frame_0001..0480.webp` serve 200
-- Live reel render through Groq (`groq_lpu_free`): virality 88, gate passed, 170 KB MP4
-- GitHub Pages workflow deployed successfully
+- 60 FPS preview build: 480 frames, ~2.4 MB, manifest + `frame_0001..0480.webp` serve 200
+- Live reel render through Groq (`groq_lpu_free`): virality 88, gate passed, ~170 KB MP4
+- Sealed custom endpoint: stored, never echoed back, appears in the live provider chain
+- GitHub Pages viewer loads; manifest is served with `Access-Control-Allow-Origin: *`
+- CI (`Typecheck, test, eval, build`) green on `main`
+
+Two bugs were found only after deploying, both fixed:
+1. The Pages viewer fetched the manifest cross-origin with no CORS header.
+2. `offline` mode skipped the key check but still called real providers, so tests
+   without keys made live HTTP calls and failed in CI. Offline now returns the
+   deterministic mock before any network call.
 
 ## Known constraints (free tier)
 
 - Render free instances **cannot mount a persistent disk**. SQLite lives at
   `/app/.data/omnigtm.db`, which survives requests but resets on redeploy/restart
-  and when the instance idles out. Previews and reels are regenerable; harvested
-  opportunities are not.
+  and when the instance idles out. The synthetic `demo` preview is generated
+  during `docker build`, so the public viewer always works; previews and reels
+  built at runtime are regenerable, but harvested opportunities are not.
 - **Upgrade path:** create a free Neon/Supabase Postgres, set `DATABASE_URL` on
   Render (the `pg` driver activates automatically), and re-run
   `npm run migrate`. No code change needed.
