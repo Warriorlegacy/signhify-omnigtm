@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 process.env.OMNIGTM_OFFLINE_TEST = '1';
 
-const { AiGateway, ProviderError, citationFidelity, complianceIssues, draftOutreach, extractJson, resolveProviders, runEvals, summarize, wrapUntrusted } = await import(
+const { AiGateway, ProviderError, citationFidelity, complianceIssues, discoverModels, draftOutreach, extractJson, parseBaseUrl, resolveProviders, runEvals, summarize, wrapUntrusted } = await import(
   '../src/index.js'
 );
 
@@ -95,4 +95,44 @@ test('ProviderError carries status for retry decisions', () => {
   const error = new ProviderError('nope', 429, true);
   assert.equal(error.status, 429);
   assert.equal(error.retryable, true);
+});
+
+test('base URLs normalize to /v1 and refuse cloud metadata endpoints', () => {
+  assert.equal(parseBaseUrl('https://gateway.example.com'), 'https://gateway.example.com/v1');
+  assert.equal(parseBaseUrl('https://gateway.example.com/v1/'), 'https://gateway.example.com/v1');
+  assert.equal(parseBaseUrl('https://gateway.example.com/openai/v1'), 'https://gateway.example.com/openai/v1');
+  assert.throws(() => parseBaseUrl('http://169.254.169.254/latest'), /metadata/);
+  assert.throws(() => parseBaseUrl('not a url'), /absolute/);
+});
+
+test('model discovery reads the OpenAI /models shape without leaking the key', async () => {
+  const original = globalThis.fetch;
+  let seenAuth = '';
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    seenAuth = String((init?.headers as Record<string, string>)?.Authorization ?? '');
+    assert.equal(String(input), 'https://freellmapi.example.com/v1/models');
+    return new Response(JSON.stringify({ data: [{ id: 'auto' }, { id: 'gpt-oss-120b' }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }) as typeof fetch;
+  try {
+    const result = await discoverModels({ baseUrl: 'https://freellmapi.example.com', apiKey: 'freellmapi-secret' });
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.models, ['auto', 'gpt-oss-120b']);
+    assert.equal(seenAuth, 'Bearer freellmapi-secret');
+    assert.ok(!JSON.stringify(result).includes('freellmapi-secret'));
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('model discovery surfaces an HTTP error without echoing the token', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () => new Response('{"error":"invalid api key"}', { status: 401 })) as typeof fetch;
+  try {
+    const result = await discoverModels({ baseUrl: 'https://freellmapi.example.com/v1', apiKey: 'freellmapi-secret' });
+    assert.equal(result.ok, false);
+    assert.match(result.error ?? '', /HTTP 401/);
+    assert.ok(!JSON.stringify(result).includes('freellmapi-secret'));
+  } finally {
+    globalThis.fetch = original;
+  }
 });

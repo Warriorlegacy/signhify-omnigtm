@@ -51,13 +51,7 @@ export async function addEndpoint(
 ): Promise<StoredEndpoint> {
   const label = input.label.trim();
   if (!label) throw new Error('label is required');
-  let url: URL;
-  try {
-    url = new URL(input.baseUrl);
-  } catch {
-    throw new Error('baseUrl must be an absolute http(s) URL');
-  }
-  if (!/^https?:$/.test(url.protocol)) throw new Error('baseUrl must use http or https');
+  const url = parseBaseUrl(input.baseUrl);
   if (!input.model.trim()) throw new Error('model is required');
 
   const endpoints = await loadStoredEndpoints(repo);
@@ -65,7 +59,7 @@ export async function addEndpoint(
   const record: StoredEndpoint = {
     id,
     label,
-    baseUrl: url.toString().replace(/\/+$/, ''),
+    baseUrl: url,
     model: input.model.trim(),
     apiKey: input.apiKey?.trim() || undefined,
     priority: Number.isFinite(input.priority) ? Number(input.priority) : 5,
@@ -76,6 +70,74 @@ export async function addEndpoint(
   const next = [...endpoints.filter((e) => e.id !== id), record];
   await saveStoredEndpoints(repo, next);
   return record;
+}
+
+/**
+ * Accept what people actually paste. A bare origin becomes `/v1` (every
+ * OpenAI-compatible gateway, FreeLLMAPI included, serves that path); an
+ * explicit path is left alone. The cloud metadata address is refused because
+ * this URL is fetched server-side.
+ */
+export function parseBaseUrl(input: string): string {
+  let url: URL;
+  try {
+    url = new URL(input.trim());
+  } catch {
+    throw new Error('baseUrl must be an absolute http(s) URL');
+  }
+  if (!/^https?:$/.test(url.protocol)) throw new Error('baseUrl must use http or https');
+  if (url.hostname === '169.254.169.254' || url.hostname === 'metadata.google.internal') {
+    throw new Error('baseUrl points at a cloud metadata endpoint');
+  }
+  if (url.pathname === '/' || url.pathname === '') url.pathname = '/v1';
+  return url.toString().replace(/\/+$/, '');
+}
+
+export interface ModelDiscovery {
+  ok: boolean;
+  baseUrl: string;
+  models: string[];
+  latencyMs: number;
+  error?: string;
+}
+
+/** GET /models so the Settings page can prove a gateway works before saving it. */
+export async function discoverModels(input: { baseUrl: string; apiKey?: string; timeoutMs?: number }): Promise<ModelDiscovery> {
+  const baseUrl = parseBaseUrl(input.baseUrl);
+  const started = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? 10_000);
+  try {
+    const res = await fetch(`${baseUrl}/models`, {
+      headers: {
+        Accept: 'application/json',
+        ...(input.apiKey?.trim() ? { Authorization: `Bearer ${input.apiKey.trim()}` } : {}),
+      },
+      signal: controller.signal,
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      return { ok: false, baseUrl, models: [], latencyMs: Date.now() - started, error: `HTTP ${res.status}: ${text.slice(0, 160)}` };
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return { ok: false, baseUrl, models: [], latencyMs: Date.now() - started, error: 'Response was not JSON' };
+    }
+    const rows = Array.isArray(parsed) ? parsed : (parsed as { data?: unknown }).data;
+    const models = Array.isArray(rows)
+      ? rows
+          .map((row) => (typeof row === 'string' ? row : (row as { id?: unknown; name?: unknown })?.id ?? (row as { name?: unknown })?.name))
+          .filter((id): id is string => typeof id === 'string' && id.length > 0)
+      : [];
+    return { ok: true, baseUrl, models: models.slice(0, 200), latencyMs: Date.now() - started };
+  } catch (error) {
+    const message = error instanceof Error && error.name === 'AbortError' ? 'Timed out after 10s' : error instanceof Error ? error.message : String(error);
+    return { ok: false, baseUrl, models: [], latencyMs: Date.now() - started, error: message };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function removeEndpoint(repo: Repo, id: string): Promise<boolean> {

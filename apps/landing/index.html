@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Signhify OmniGTM — the $0 autonomous GTM engine</title>
+  <meta name="description" content="Harvest ATS boards, score fit, draft outreach, render 60 FPS reels and publish — on free tiers only. Open source, MCP-native, no per-seat SaaS." />
+  <meta property="og:title" content="Signhify OmniGTM" />
+  <meta property="og:description" content="The autonomous GTM engine that runs on free tiers. 60 FPS scroll previews, FFmpeg reels, 7/7 eval gate." />
+  <meta property="og:type" content="website" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>Signhify<span class="brand-dim">/OmniGTM</span></span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="#stack">Stack</a>
+      <a href="#proof">Proof</a>
+      <a href="#start">Start</a>
+      <a class="nav-cta" href="https://signhify-omnigtm.onrender.com">Open dashboard</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="hero">
+      <div class="hero-stage">
+        <canvas id="scrub" width="1280" height="720" aria-hidden="true"></canvas>
+        <div class="hero-shade" aria-hidden="true"></div>
+        <div class="hero-copy">
+          <p class="eyebrow">Open source · zero-budget infrastructure</p>
+          <h1>Your GTM engine<br />shouldn't cost<br /><em>$580 a month.</em></h1>
+          <p class="lede">
+            OmniGTM polls seven ATS sources directly, scores fit, drafts outreach and
+            renders 60 FPS video reels — on free tiers, with no enrichment credits and
+            no per-seat SaaS.
+          </p>
+          <div class="actions">
+            <a class="btn btn-primary" href="https://signhify-omnigtm.onrender.com">Open the dashboard</a>
+            <a class="btn" href="https://warriorlegacy.github.io/signhify-omnigtm/?slug=demo">Scrub the 3D demo</a>
+            <a class="btn btn-ghost" href="https://github.com/Warriorlegacy/signhify-omnigtm">Source</a>
+          </div>
+        </div>
+        <p class="hero-caption"><span id="frame-readout">frame 0001</span> · scroll to scrub · 120 WebP frames, no WebGL</p>
+      </div>
+    </section>
+
+    <section class="metrics" aria-label="Key numbers">
+      <div><strong>7/7</strong><span>eval dimensions passing</span></div>
+      <div><strong>60 FPS</strong><span>scroll-scrubbed preview</span></div>
+      <div><strong>7</strong><span>ATS sources, direct</span></div>
+      <div><strong>$0.00</strong><span>monthly infrastructure</span></div>
+    </section>
+
+    <section class="split" id="proof">
+      <div>
+        <p class="eyebrow">What actually runs</p>
+        <h2>Four loops, one repository.</h2>
+      </div>
+      <ol class="loop">
+        <li>
+          <span class="loop-num">01</span>
+          <div>
+            <h3>Harvest</h3>
+            <p>Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Recruitee and Personio boards are fetched directly. No aggregator, no credit meter.</p>
+          </div>
+        </li>
+        <li>
+          <span class="loop-num">02</span>
+          <div>
+            <h3>Score and draft</h3>
+            <p>A heuristic scorer shortlists, then a provider chain — Groq, OpenRouter, Gemini, Cerebras, NIM, Mistral, Ollama, or your own gateway — writes the draft. Rate limits fail over in under 400 ms.</p>
+          </div>
+        </li>
+        <li>
+          <span class="loop-num">03</span>
+          <div>
+            <h3>Render</h3>
+            <p>FFmpeg turns a script into a 9:16 reel and an 8-second clip into 480 progressive WebP frames. The viewer scrubs them on canvas; there is no Three.js bundle to download.</p>
+          </div>
+        </li>
+        <li>
+          <span class="loop-num">04</span>
+          <div>
+            <h3>Publish and prove</h3>
+            <p>Outreach is confirm-gated and dry-run by default. Every release is checked by a seven-dimension eval gate: secret fallbacks, 429 failover, citation fidelity, redaction, voice card, idempotency.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="stack" id="stack">
+      <div class="stack-head">
+        <p class="eyebrow">The bill</p>
+        <h2>Every line item is a free tier.</h2>
+        <p class="dim">No trials that expire, no cards on file. Swap any row for a self-hosted equivalent.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Layer</th><th>Service</th><th>Free allowance</th><th class="right">Cost</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Inference</td><td>Groq · OpenRouter · Gemini · Cerebras · NIM · Mistral</td><td>Daily request caps, chained with failover</td><td class="right mono">$0</td></tr>
+            <tr><td>Custom gateway</td><td>FreeLLMAPI / LiteLLM / vLLM</td><td>Bring your own OpenAI-compatible endpoint</td><td class="right mono">$0</td></tr>
+            <tr><td>Database</td><td>Neon Postgres</td><td>0.5 GB, autosuspend</td><td class="right mono">$0</td></tr>
+            <tr><td>Compute</td><td>Render Docker</td><td>750 h/month, FFmpeg included</td><td class="right mono">$0</td></tr>
+            <tr><td>CI + scheduler</td><td>GitHub Actions</td><td>2,000 min/month</td><td class="right mono">$0</td></tr>
+            <tr><td>Static hosting</td><td>Vercel · GitHub Pages</td><td>100 GB bandwidth</td><td class="right mono">$0</td></tr>
+            <tr><td>Email</td><td>Brevo</td><td>300 messages/day</td><td class="right mono">$0</td></tr>
+            <tr><td>Video</td><td>FFmpeg</td><td>Local binary, no API</td><td class="right mono">$0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="start" id="start">
+      <div>
+        <p class="eyebrow">Three commands</p>
+        <h2>Run it yourself.</h2>
+        <p class="dim">
+          Node 22 and FFmpeg are the only prerequisites. SQLite is the default store;
+          set <code>DATABASE_URL</code> and the same code uses Postgres.
+        </p>
+        <a class="btn btn-primary" href="https://github.com/Warriorlegacy/signhify-omnigtm#readme">Read the setup guide</a>
+      </div>
+      <pre class="code"><code><span class="c"># clone and install</span>
+git clone https://github.com/Warriorlegacy/signhify-omnigtm
+cd signhify-omnigtm &amp;&amp; npm install
+
+<span class="c"># migrate, then run the dashboard</span>
+npm run db:migrate
+npm run dev
+
+<span class="c"># or drive it over MCP</span>
+npm run mcp</code></pre>
+    </section>
+
+    <section class="closing">
+      <h2>The stack is the argument.</h2>
+      <p>Harvest, score, render and publish without renting a growth platform.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://signhify-omnigtm.onrender.com">Open the dashboard</a>
+        <a class="btn btn-ghost" href="https://github.com/Warriorlegacy/signhify-omnigtm">Star on GitHub</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Signhify OmniGTM · MIT</span>
+    <span class="mono">60 FPS · 480 frames · $0/mo</span>
+  </footer>
+
+  <script src="landing.js" defer></script>
+</body>
+</html>

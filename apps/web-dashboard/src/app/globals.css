@@ -176,6 +176,7 @@ tbody tr:hover { background: rgba(56, 189, 248, 0.04); }
 .notice[data-tone='rose'] { border-color: rgba(244, 63, 94, 0.4); color: #fecdd3; background: rgba(244, 63, 94, 0.08); }
 .notice[data-tone='green'] { border-color: rgba(16, 185, 129, 0.4); color: #a7f3d0; background: rgba(16, 185, 129, 0.08); }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row-between { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .spacer { flex: 1; }
 .muted { color: var(--muted); }
 .dim { color: var(--dim); }
