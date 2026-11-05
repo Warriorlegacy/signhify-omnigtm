@@ -141,10 +141,16 @@ export async function assertPublicEndpoint(baseUrl: string): Promise<void> {
   }
 }
 
-const MAX_BODY_BYTES = 512 * 1024;
+/**
+ * Bounded read. OpenRouter's `/models` is ~800 KB of metadata, so a small cap
+ * rejects real gateways; 2 MB still bounds a hostile stream on a 512 MB box.
+ */
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 async function readCapped(res: Response): Promise<string> {
-  if (Number(res.headers.get('content-length') ?? 0) > MAX_BODY_BYTES) throw new Error('Response too large');
+  if (Number(res.headers.get('content-length') ?? 0) > MAX_BODY_BYTES) {
+    throw new Error(`Response exceeds ${MAX_BODY_BYTES / 1024 / 1024} MB`);
+  }
   const reader = res.body?.getReader();
   if (!reader) return '';
   const chunks: Uint8Array[] = [];
@@ -155,7 +161,7 @@ async function readCapped(res: Response): Promise<string> {
     total += value.byteLength;
     if (total > MAX_BODY_BYTES) {
       await reader.cancel();
-      throw new Error('Response too large');
+      throw new Error(`Response exceeds ${MAX_BODY_BYTES / 1024 / 1024} MB`);
     }
     chunks.push(value);
   }

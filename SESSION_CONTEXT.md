@@ -28,9 +28,10 @@ Local, gitignored, never committed:
 
 Harvested and now set on Render: `DATABASE_URL`, `GEMINI_API_KEY`,
 `CEREBRAS_API_KEY`, `NVIDIA_API_KEY`, `MISTRAL_API_KEY`, `COHERE_API_KEY`,
-`HUGGINGFACE_API_KEY`, `BREVO_FROM_EMAIL`, `BREVO_FROM_NAME`,
-`IG_BUSINESS_ACCOUNT_ID`, `IG_LONG_LIVED_ACCESS_TOKEN` (Meta Graph long-lived),
-plus the pre-existing `GROQ_API_KEY` and `OPENROUTER_API_KEY`.
+`HUGGINGFACE_API_KEY`, `APINEX_API_KEY` (+ `APINEX_BASE_URL`, `APINEX_MODEL`),
+`BREVO_FROM_EMAIL`, `BREVO_FROM_NAME`, `IG_BUSINESS_ACCOUNT_ID`,
+`IG_LONG_LIVED_ACCESS_TOKEN` (Meta Graph long-lived), plus the pre-existing
+`GROQ_API_KEY` and `OPENROUTER_API_KEY`.
 
 Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
 = `sha256("omnigtm-session:" + token)`, HttpOnly/Secure/SameSite=Lax, 12 h.
@@ -43,11 +44,30 @@ Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
 - 60 FPS preview: 480 frames, manifest + frames 200, demo baked into the image
 - Live Groq reel render: virality 88, gate passed, MP4 download 200
 - Custom endpoint: sealed, never echoed, appears in the provider chain, deletable
+- Endpoint probe accepts an OpenRouter-sized (795 KB) model list; capped at 2 MB
 - Landing page on Vercel: HTML/CSS/JS/frames 200, immutable frame caching
-- CI green (`Typecheck, test, eval, build`), 30 tests
+- CI green (`Typecheck, test, eval, build`), 31 tests
+
+## Provider chain
+
+Ordered, env-overridable, fastest free tier first:
+
+| Priority | Provider | Model | Note |
+| --- | --- | --- | --- |
+| 10 | Groq | `openai/gpt-oss-120b` | 30 RPM / 1,000 RPD |
+| 15 | **APIinex** | `free/gpt-6-luna` | 20M free tokens/day, `free/*` pool |
+| 20 | OpenRouter | `…:free` | 50 RPD at $0 |
+| 30 | Google AI Studio | `gemini-2.5-flash` | 15 RPM |
+| 40 | Cerebras | `gpt-oss-120b` | 5 RPM |
+| 50 | NVIDIA NIM | `deepseek-v4.1-flash` | dev credits |
+| 60 | Mistral | `mistral-small-latest` | experiment tier |
+| 90 | Ollama | local | offline fallback |
+
+APIinex (`https://api.apinex.bond/v1`) is OpenAI-compatible, serves 42 models
+(21 under `free/`), and answered `free/gpt-6-luna` in 2.6 s with
+`cost_tokens: 0`. Free model ids rotate — override `APINEX_MODEL`.
 
 ## Custom endpoints (freellmapi and friends)
-
 Settings → Custom endpoints accepts any OpenAI-compatible gateway.
 
 - **Test connection** calls `GET {baseUrl}/models` and lists up to 200 models,

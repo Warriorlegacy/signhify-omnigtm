@@ -142,3 +142,30 @@ test('URL-embedded credentials are rejected instead of echoed back', () => {
   assert.throws(() => parseBaseUrl('https://gateway.example.com/v1?api_key=sk-live'), /Bearer token field/);
   assert.throws(() => parseBaseUrl('http://169.254.169.254/latest'), /metadata/);
 });
+
+test('discovery accepts an OpenRouter-sized model list but rejects an unbounded stream', async () => {
+  const original = globalThis.fetch;
+  // ~800 KB of real-world shape: OpenRouter's /models is 795 KB.
+  const big = JSON.stringify({ data: Array.from({ length: 8000 }, (_, i) => ({ id: `vendor/model-${i}`, context_length: 128000, pricing: { prompt: '0.000001', completion: '0.000002' } })) });
+  assert.ok(big.length > 512 * 1024, `fixture should exceed the old cap, got ${big.length}`);
+  assert.ok(big.length < 2 * 1024 * 1024);
+
+  globalThis.fetch = (async () => new Response(big, { status: 200, headers: { 'Content-Type': 'application/json' } })) as typeof fetch;
+  try {
+    const ok = await discoverModels({ baseUrl: 'https://openrouter.ai/api/v1' });
+    assert.equal(ok.ok, true, ok.error);
+    assert.equal(ok.models.length, 200, 'model list is capped for the UI');
+    assert.equal(ok.models[0], 'vendor/model-0');
+  } finally {
+    globalThis.fetch = original;
+  }
+
+  globalThis.fetch = (async () => new Response('x'.repeat(3 * 1024 * 1024), { status: 200 })) as typeof fetch;
+  try {
+    const tooBig = await discoverModels({ baseUrl: 'https://openrouter.ai/api/v1' });
+    assert.equal(tooBig.ok, false);
+    assert.match(tooBig.error ?? '', /exceeds 2 MB/);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
