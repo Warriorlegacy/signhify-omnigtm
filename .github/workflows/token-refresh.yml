@@ -1,0 +1,53 @@
+name: Token health
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Instagram token expiry
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check long-lived token
+        id: ig
+        env:
+          IG_TOKEN: ${{ secrets.IG_LONG_LIVED_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$IG_TOKEN" ]; then
+            echo "state=unconfigured" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          response=$(curl -sS --max-time 20 \
+            "https://graph.facebook.com/v23.0/debug_token?input_token=${IG_TOKEN}&access_token=${IG_TOKEN}")
+          expires=$(echo "$response" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.data?.expires_at??0)}catch{console.log(0)}})")
+          now=$(date +%s)
+          days=$(( (expires - now) / 86400 ))
+          echo "days_left=$days" >> "$GITHUB_OUTPUT"
+          echo "Token expires in ${days} day(s)."
+          if [ "$days" -lt 7 ]; then
+            echo "state=expiring" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=ok" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open an issue when the token is close to expiry
+        if: steps.ig.outputs.state == 'expiring'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DAYS: ${{ steps.ig.outputs.days_left }}
+        run: |
+          gh issue create \
+            --title "Instagram long-lived token expires in ${DAYS} day(s)" \
+            --body "Refresh it with \`GET /oauth/access_token?grant_type=fb_exchange_token\`, then update the \`IG_LONG_LIVED_ACCESS_TOKEN\` repository secret. Publishing silently degrades to dry-run when the token lapses." \
+            --label operations || true
+
+      - name: Fail loudly when the token has already lapsed
+        if: steps.ig.outputs.state == 'expiring' && steps.ig.outputs.days_left < 0
+        run: exit 1

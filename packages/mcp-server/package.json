@@ -1,0 +1,23 @@
+{
+  "name": "@omnigtm/mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "bin": {
+    "omnigtm-mcp": "./src/index.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./tools": "./src/tools.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "@omnigtm/ai-gateway": "*",
+    "@omnigtm/core": "*",
+    "@omnigtm/media": "*",
+    "@omnigtm/outbound": "*",
+    "zod": "^3.24.1"
+  }
+}

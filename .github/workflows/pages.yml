@@ -1,0 +1,43 @@
+name: Deploy viewer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/viewer-3d/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Point the viewer at the live API
+        env:
+          API_BASE: ${{ vars.OMNIGTM_PUBLIC_BASE_URL }}
+        run: |
+          mkdir -p dist
+          cp apps/viewer-3d/index.html apps/viewer-3d/viewer.js dist/
+          printf 'window.OMNIGTM_API_BASE = %s;\n' "$(node -e "console.log(JSON.stringify(process.env.API_BASE||''))")" > dist/config.js
+          touch dist/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,67 @@
+name: Daily pipeline
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      useLlm:
+        description: 'Re-score the shortlist with the LLM chain'
+        type: boolean
+        default: true
+      llmBudget:
+        description: 'Max LLM calls for this run'
+        type: string
+        default: '6'
+
+concurrency:
+  group: daily-pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  harvest:
+    name: Harvest + eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Migrate + seed
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OMNIGTM_ENCRYPTION_KEY: ${{ secrets.OMNIGTM_ENCRYPTION_KEY }}
+
+      - name: Harvest ATS boards
+        run: npm run harvest -- --limit 30 --llm-budget ${{ inputs.llmBudget || '6' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OMNIGTM_ENCRYPTION_KEY: ${{ secrets.OMNIGTM_ENCRYPTION_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OMNIGTM_LLM: ${{ inputs.useLlm == false && '0' || '1' }}
+
+      - name: Eval gate
+        run: npm run eval | tee eval-output.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-output
+          path: eval-output.txt
+          retention-days: 14
+
+      - name: Heartbeat
+        if: always()
+        run: echo "pipeline finished at $(date -u +%FT%TZ)"

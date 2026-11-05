@@ -1,0 +1,40 @@
+{
+  "name": "signhify-omnigtm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Signhify OmniGTM — open-source autonomous GTM, 60 FPS 3D/video and MCP growth OS on a $0 stack.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @omnigtm/web",
+    "build": "npm run build --workspace @omnigtm/web",
+    "start": "npm run start --workspace @omnigtm/web",
+    "typecheck": "tsc -p tsconfig.check.json --noEmit",
+    "test": "node --import tsx --test packages/core/test/*.test.ts packages/ai-gateway/test/*.test.ts packages/outbound/test/*.test.ts packages/media/test/*.test.ts packages/mcp-server/test/*.test.ts",
+    "eval": "tsx packages/ai-gateway/src/cli/eval.ts",
+    "eval:py": "python packages/ai-gateway/evals/run_evals.py",
+    "smoke:llm": "tsx packages/ai-gateway/src/cli/smoke.ts",
+    "harvest": "tsx packages/outbound/src/cli/harvest.ts",
+    "preview": "tsx packages/media/src/cli/preview.ts",
+    "reel": "tsx packages/media/src/cli/reel.ts",
+    "mcp": "tsx packages/mcp-server/src/index.ts",
+    "db:migrate": "tsx packages/core/src/cli/migrate.ts",
+    "verify": "npm run typecheck && npm test && npm run eval && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

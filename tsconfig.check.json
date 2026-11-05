@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": [
+    "packages/core/src/**/*.ts",
+    "packages/core/test/**/*.ts",
+    "packages/ai-gateway/src/**/*.ts",
+    "packages/ai-gateway/test/**/*.ts",
+    "packages/outbound/src/**/*.ts",
+    "packages/outbound/test/**/*.ts",
+    "packages/media/src/**/*.ts",
+    "packages/media/test/**/*.ts",
+    "packages/mcp-server/src/**/*.ts",
+    "packages/mcp-server/test/**/*.ts"
+  ],
+  "exclude": ["**/node_modules", "**/.next"]
+}

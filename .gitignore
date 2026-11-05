@@ -1,0 +1,26 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Runtime state — never commit mutable state (kills Render builds, see docs/DEPLOYMENT.md)
+.data/
+artifacts/
+previews/
+*.db
+*.db-journal
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

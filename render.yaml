@@ -1,0 +1,36 @@
+services:
+  web:
+    type: web
+    name: signhify-omnigtm
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    disk:
+      name: omnigtm-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: OMNIGTM_DB_PATH
+        value: /data/omnigtm.db
+      - key: OMNIGTM_MEDIA_DIR
+        value: /data/previews
+      - key: OMNIGTM_ENCRYPTION_KEY
+        generateValue: true
+      - key: OMNIGTM_DASHBOARD_TOKEN
+        generateValue: true
+      - key: OMNIGTM_PUBLIC_BASE_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: FREELMAPI_BASE_URL
+        sync: false
+      - key: FREELMAPI_API_KEY
+        sync: false

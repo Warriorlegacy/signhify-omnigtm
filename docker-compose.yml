@@ -1,0 +1,44 @@
+name: signhify-omnigtm
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: omnigtm
+      POSTGRES_PASSWORD: omnigtm
+      POSTGRES_DB: omnigtm
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U omnigtm -d omnigtm']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: postgres://omnigtm:omnigtm@db:5432/omnigtm
+      OMNIGTM_DB_PATH: /data/omnigtm.db
+      OMNIGTM_MEDIA_DIR: /data/previews
+      OMNIGTM_PUBLIC_BASE_URL: http://localhost:3000
+      OMNIGTM_ENCRYPTION_KEY: ${OMNIGTM_ENCRYPTION_KEY:?set OMNIGTM_ENCRYPTION_KEY}
+      OMNIGTM_DASHBOARD_TOKEN: ${OMNIGTM_DASHBOARD_TOKEN:?set OMNIGTM_DASHBOARD_TOKEN}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      FREELMAPI_BASE_URL: ${FREELMAPI_BASE_URL:-}
+      FREELMAPI_API_KEY: ${FREELMAPI_API_KEY:-}
+    volumes:
+      - appdata:/data
+
+volumes:
+  pgdata:
+  appdata:

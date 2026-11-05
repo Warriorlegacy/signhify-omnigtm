@@ -1,0 +1,944 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Free and Open-Source Stack Research — The $0 Architecture</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #f7f6f1;
+        --surface: #fffef9;
+        --surface-2: #efeee6;
+        --ink: #1c1f1a;
+        --ink-2: #4c524a;
+        --ink-3: #7a8074;
+        --line: #dddccd;
+        --accent: #17603a;
+        --accent-soft: #e3efe4;
+        --warn: #8a4b0d;
+        --warn-soft: #f7ecd9;
+        --bad: #9c2b1e;
+        --bad-soft: #f8e6e1;
+        --good: #17603a;
+        --good-soft: #e3efe4;
+        --chart-1: #17603a;
+        --chart-2: #b98a2f;
+        --chart-3: #6b7263;
+        --chart-4: #9c2b1e;
+        --radius: 10px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #111410;
+          --surface: #181b16;
+          --surface-2: #1f231d;
+          --ink: #e8eae3;
+          --ink-2: #b3b8ac;
+          --ink-3: #828a7d;
+          --line: #31362d;
+          --accent: #6fce96;
+          --accent-soft: #1d2f22;
+          --warn: #e8b06a;
+          --warn-soft: #2f2617;
+          --bad: #f0937f;
+          --bad-soft: #331f1a;
+          --good: #6fce96;
+          --good-soft: #1d2f22;
+          --chart-1: #6fce96;
+          --chart-2: #e8b06a;
+          --chart-3: #9aa392;
+          --chart-4: #f0937f;
+        }
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        * { transition: none !important; animation: none !important; }
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "IBM Plex Sans", system-ui, sans-serif;
+        font-size: 16px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 80px; }
+      a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+      a:hover { text-decoration-thickness: 2px; }
+
+      /* ---------- header ---------- */
+      header.hero { padding: 48px 0 8px; }
+      .kicker {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12.5px; letter-spacing: .12em; text-transform: uppercase;
+        color: var(--accent); margin: 0 0 14px;
+      }
+      h1 {
+        font-family: "IBM Plex Serif", serif;
+        font-size: clamp(30px, 5.4vw, 46px);
+        line-height: 1.12; font-weight: 600; margin: 0 0 16px; letter-spacing: -.01em;
+      }
+      .lede { font-size: clamp(16px, 2.2vw, 19px); color: var(--ink-2); max-width: 46em; margin: 0 0 22px; }
+      .meta-row {
+        display: flex; flex-wrap: wrap; gap: 8px 22px;
+        font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink-3);
+        border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+        padding: 10px 0; margin-bottom: 28px;
+      }
+      .meta-row b { color: var(--ink-2); font-weight: 600; }
+
+      /* ---------- architecture strip ---------- */
+      .arch {
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+        padding: 22px 22px 8px; margin-bottom: 34px;
+      }
+      .arch h2 { font-size: 15px; margin: 0 0 4px; font-family: "IBM Plex Mono", monospace; letter-spacing: .06em; text-transform: uppercase; }
+      .arch p { color: var(--ink-2); margin: 0 0 14px; font-size: 14.5px; }
+      .arch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 28px; }
+      .arch-item { padding: 10px 0 12px; border-top: 1px dashed var(--line); }
+      .arch-item .t { font-weight: 600; font-size: 14.5px; }
+      .arch-item .d { font-size: 13.5px; color: var(--ink-2); }
+
+      /* ---------- section scaffolding ---------- */
+      section { margin-top: 44px; }
+      .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
+      .sec-num {
+        font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--accent);
+        border: 1px solid var(--accent); border-radius: 999px; padding: 1px 9px; white-space: nowrap;
+      }
+      h2.sec-title { font-family: "IBM Plex Serif", serif; font-size: clamp(22px, 3.4vw, 29px); font-weight: 600; margin: 0; line-height: 1.2; }
+      .sec-sub { color: var(--ink-2); max-width: 48em; margin: 6px 0 18px; font-size: 15px; }
+      h3.layer-title { font-size: 17px; font-weight: 600; margin: 30px 0 4px; }
+      h3.layer-title:first-of-type { margin-top: 8px; }
+      .layer-note { font-size: 14px; color: var(--ink-2); margin: 0 0 12px; max-width: 50em; }
+      .src { font-size: 12.5px; color: var(--ink-3); margin: 8px 0 0; word-break: break-word; }
+      .src a { color: var(--ink-3); }
+
+      /* ---------- tables ---------- */
+      .tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+      table { border-collapse: collapse; width: 100%; font-size: 14px; }
+      thead th {
+        text-align: left; font-family: "IBM Plex Mono", monospace; font-size: 11.5px;
+        letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3);
+        padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap;
+      }
+      tbody td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      tbody tr:last-child td { border-bottom: none; }
+      td .name { font-weight: 600; }
+      td .sub { color: var(--ink-2); font-size: 13px; display: block; margin-top: 2px; }
+      .mono { font-family: "IBM Plex Mono", monospace; font-size: 12.8px; }
+      .pick { background: var(--accent-soft); }
+      .pick td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
+      /* ---------- badges ---------- */
+      .badge {
+        display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
+        padding: 1px 7px; border-radius: 999px; vertical-align: 1px; white-space: nowrap;
+      }
+      .b-a { background: var(--good-soft); color: var(--good); }
+      .b-b { background: var(--good-soft); color: var(--good); }
+      .b-c { background: var(--warn-soft); color: var(--warn); }
+      .b-d { background: var(--warn-soft); color: var(--warn); }
+      .b-e { background: var(--bad-soft); color: var(--bad); }
+      .b-ok { background: var(--good-soft); color: var(--good); }
+      .b-no { background: var(--bad-soft); color: var(--bad); }
+      .b-mid { background: var(--warn-soft); color: var(--warn); }
+      .star { color: var(--accent); }
+
+      /* ---------- tabs ---------- */
+      .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+      .tab-btn {
+        font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+        background: var(--surface); color: var(--ink-2);
+        border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px;
+        transition: background .15s ease, color .15s ease, border-color .15s ease;
+      }
+      .tab-btn[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+      .tab-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .tabpanel { display: none; }
+      .tabpanel.active { display: block; animation: fadein .2s ease-out; }
+      @keyframes fadein { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+      .tabpanel .reality {
+        margin-top: 12px; font-size: 14px; color: var(--ink-2);
+        border-left: 3px solid var(--warn); padding: 8px 14px; background: var(--warn-soft); border-radius: 0 8px 8px 0;
+      }
+
+      /* ---------- callouts / lists ---------- */
+      .callout {
+        border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+        padding: 16px 18px; margin: 14px 0; font-size: 14.5px;
+      }
+      .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+      .callout p { margin: 0 0 8px; }
+      .callout p:last-child { margin-bottom: 0; }
+      .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); margin: 10px 0 20px; }
+      ul.tight { margin: 8px 0; padding-left: 20px; }
+      ul.tight li { margin: 5px 0; font-size: 14.5px; }
+      ol.steps { margin: 10px 0; padding-left: 22px; }
+      ol.steps li { margin: 9px 0; font-size: 14.5px; }
+      ol.steps li b { font-weight: 600; }
+
+      /* ---------- flags grid ---------- */
+      .flags { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+      .flag {
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;
+      }
+      .flag .fh { font-weight: 600; font-size: 14.5px; margin-bottom: 3px; }
+      .flag .fb { font-size: 13.5px; color: var(--ink-2); }
+
+      /* ---------- chart ---------- */
+      .chart-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 18px 10px; margin-bottom: 16px; }
+      .chart-box h3 { margin: 0 0 2px; font-size: 15px; }
+      .chart-box .cap { font-size: 13px; color: var(--ink-3); margin: 0 0 12px; }
+      .chart-box svg { width: 100%; height: auto; display: block; }
+      .chart-box text { font-family: "IBM Plex Sans", sans-serif; fill: var(--ink); }
+      .chart-box .axis { stroke: var(--line); }
+      .chart-box .val { font-family: "IBM Plex Mono", monospace; font-size: 12px; fill: var(--ink-2); }
+      .chart-box .lbl { font-size: 13px; }
+
+      /* ---------- nav ---------- */
+      nav.toc {
+        position: sticky; top: 0; z-index: 5; background: var(--bg);
+        border-bottom: 1px solid var(--line); padding: 10px 0; margin-bottom: 6px;
+        display: flex; gap: 6px; flex-wrap: wrap;
+      }
+      nav.toc a {
+        font-size: 13px; font-weight: 500; color: var(--ink-2); text-decoration: none;
+        padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
+        white-space: nowrap;
+      }
+      nav.toc a:hover { color: var(--ink); border-color: var(--ink-3); }
+
+      footer { margin-top: 56px; border-top: 1px solid var(--line); padding-top: 18px; font-size: 13px; color: var(--ink-3); }
+      footer ul { padding-left: 18px; margin: 6px 0; }
+      footer li { margin: 3px 0; word-break: break-word; }
+
+      /* ---------- mobile table reflow ---------- */
+      @media (max-width: 640px) {
+        .wrap { padding: 0 14px 64px; }
+        .tbl-wrap { border: none; background: transparent; overflow-x: visible; }
+        table, tbody, tr, td { display: block; width: 100%; }
+        thead { display: none; }
+        tbody tr {
+          background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+          margin-bottom: 10px; padding: 6px 0;
+        }
+        tbody td { border-bottom: none; padding: 6px 14px; }
+        tbody td::before {
+          content: attr(data-label); display: block;
+          font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .07em;
+          text-transform: uppercase; color: var(--ink-3); margin-bottom: 1px;
+        }
+        tbody td.no-label::before { content: none; }
+        .pick td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+
+      <header class="hero">
+        <p class="kicker">Zero-capital stack research · Signhify Founder OS</p>
+        <h1>A complete tech stack that costs ₹0 — and where the free ends</h1>
+        <p class="lede">
+          Sourced research for three systems a solo developer in India can build with no capital:
+          an AI content / GTM autopilot, a multi-tenant RAG support copilot SaaS, and a job-search
+          aggregator. Every tool below is classified by how free it actually is, with its real limits,
+          its licence, and the trap to avoid. “Free” marketing claims that don’t hold up are flagged, not repeated.
+        </p>
+        <div class="meta-row">
+          <span><b>Researched</b> 3–4 Nov 2026</span>
+          <span><b>Confidence</b> high on licences &amp; YouTube policy · medium on exact free-tier numbers</span>
+          <span><b>Rule</b> free tiers churn — re-check the vendor page in your own account before building anything load-bearing on a quota</span>
+        </div>
+      </header>
+
+      <nav class="toc" aria-label="Sections">
+        <a href="#systems">The three stacks</a>
+        <a href="#layers">Layer by layer</a>
+        <a href="#selling">Selling at $0</a>
+        <a href="#youtube">YouTube policy</a>
+        <a href="#video-tools">Video tools audit</a>
+        <a href="#traps">Not-actually-free flags</a>
+        <a href="#open">Open questions</a>
+      </nav>
+
+      <div class="arch">
+        <h2>The $0 architecture in one view</h2>
+        <p>Two homes for everything: Cloudflare’s free edge for the public-facing parts, and one free always-on VM for the heavy parts. Everything else hangs off those two.</p>
+        <div class="arch-grid">
+          <div class="arch-item">
+            <div class="t">Cloudflare Pages / Workers / R2</div>
+            <div class="d">Frontends, edge APIs, file hosting. Commercial use allowed on the free plan, hard caps, no surprise bill.</div>
+          </div>
+          <div class="arch-item">
+            <div class="t">One Oracle Cloud Always Free ARM VM</div>
+            <div class="d">2 OCPU / 12 GB RAM, 200 GB disk, 10 TB egress (halved 15 Jun 2026). Runs Docker Compose: Postgres + pgvector, n8n or Windmill, Postiz, Umami, Uptime Kuma, Langfuse, Ollama (small models only). The only true free always-on server.</div>
+          </div>
+          <div class="arch-item">
+            <div class="t">LLM fallback chain</div>
+            <div class="d">Groq → Cerebras → Gemini Flash → OpenRouter <span class="mono">:free</span> → Cloudflare Workers AI for burst and quality; local Ollama for private, cheap bulk work.</div>
+          </div>
+          <div class="arch-item">
+            <div class="t">Media pipeline</div>
+            <div class="d">Kokoro (Apache-2.0) for voice, FFmpeg + HyperFrames (Apache-2.0) for video, FLUX schnell / klein for images.</div>
+          </div>
+          <div class="arch-item">
+            <div class="t">Scheduling</div>
+            <div class="d">GitHub Actions cron (public repo = unlimited standard-runner minutes) + Cloudflare Cron Triggers.</div>
+          </div>
+          <div class="arch-item">
+            <div class="t">Selling</div>
+            <div class="d">Polar / Lemon Squeezy (5% + $0.50, merchant-of-record) globally; Razorpay Payment Links (2% + GST, ₹0 setup) in India. Percentage-only, $0 upfront.</div>
+          </div>
+        </div>
+        <div class="callout warn">
+          <p><b>Do not build on:</b> Vercel Hobby for anything commercial · XTTS or F5-TTS for monetised video ·
+          FLUX.1 dev for commercial images · n8n as a tenant-facing SaaS feature · Remotion once you hire a 4th person ·
+          scraped LinkedIn / Indeed jobs. Each is explained in the layers and flags below.</p>
+        </div>
+      </div>
+
+      <!-- ================= SYSTEMS ================= -->
+      <section id="systems">
+        <div class="sec-head"><span class="sec-num">01</span><h2 class="sec-title">The recommended $0 stack, per system</h2></div>
+        <p class="sec-sub">Three tabs — the full layer-by-layer pick for each product, drawn from the research. The design rule that applies to all three: code against an OpenAI-compatible base URL with a provider chain and a response cache. Free tiers retire models without notice (GitHub Models was retired 30 Jul 2026) — never hard-code one free model.</p>
+
+        <div class="tabs" role="tablist" aria-label="System stacks">
+          <button class="tab-btn" role="tab" id="tabbtn-1" aria-selected="true" aria-controls="panel-1" data-tab="1">System 1 · GTM autopilot</button>
+          <button class="tab-btn" role="tab" id="tabbtn-2" aria-selected="false" aria-controls="panel-2" data-tab="2">System 2 · RAG copilot SaaS</button>
+          <button class="tab-btn" role="tab" id="tabbtn-3" aria-selected="false" aria-controls="panel-3" data-tab="3">System 3 · Job aggregator</button>
+        </div>
+
+        <div class="tabpanel active" id="panel-1" role="tabpanel" aria-labelledby="tabbtn-1">
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Layer</th><th>Pick at $0</th></tr></thead>
+            <tbody>
+              <tr><td data-label="Layer"><span class="name">Ideation / scripts</span></td><td data-label="Pick">Groq (gpt-oss-120b) → Cerebras → Gemini Flash chain; cache responses; a human edit step is mandatory for YouTube Partner Program compliance</td></tr>
+              <tr><td data-label="Layer"><span class="name">Voice</span></td><td data-label="Pick"><b>Kokoro</b>, run locally on your PC or the Oracle VM (batch overnight); Piper for fast drafts</td></tr>
+              <tr><td data-label="Layer"><span class="name">Visuals</span></td><td data-label="Pick">FLUX schnell via Workers AI (~57 images/day from the shared Neuron pool) or local ComfyUI; Penpot / HTML templates for carousels</td></tr>
+              <tr><td data-label="Layer"><span class="name">Video</span></td><td data-label="Pick"><b>HyperFrames + FFmpeg</b> (Remotion is also $0 while solo / ≤3 people); Manim for diagrams; MoviePy for glue code</td></tr>
+              <tr><td data-label="Layer"><span class="name">Scheduling / publishing</span></td><td data-label="Pick">Your own Python publisher + a Postgres queue on Oracle, or self-hosted Postiz if you want a calendar UI on day 1; GitHub Actions cron as a backup trigger. Instagram via the Meta container API (own Professional account); YouTube via the Data API (verify quota and privacy status in your own console)</td></tr>
+              <tr><td data-label="Layer"><span class="name">Storage / CDN</span></td><td data-label="Pick">Cloudflare R2 — provides the public HTTPS media URLs Meta’s API requires</td></tr>
+              <tr><td data-label="Layer"><span class="name">Analytics</span></td><td data-label="Pick">Umami on your own site + native Instagram / YouTube analytics; Uptime Kuma for alerts</td></tr>
+              <tr><td data-label="Layer"><span class="name">Money</span></td><td data-label="Pick">Link in bio → Polar / Lemon Squeezy (global) + a Razorpay Payment Link (India)</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+
+        <div class="tabpanel" id="panel-2" role="tabpanel" aria-labelledby="tabbtn-2">
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Layer</th><th>Pick at $0</th></tr></thead>
+            <tbody>
+              <tr><td data-label="Layer"><span class="name">Frontend / API</span></td><td data-label="Pick">Cloudflare Pages + Workers for the edge API (keep LLM/RAG heavy work async — Workers Free allows only 10 ms CPU per invocation); or Next.js / FastAPI on the Oracle VM</td></tr>
+              <tr><td data-label="Layer"><span class="name">Tenancy / data</span></td><td data-label="Pick"><b>Postgres (Neon Free or self-hosted on Oracle) + pgvector + Row-Level Security</b>, with <span class="mono">tenant_id</span> on every table, per-tenant namespaces, quotas and API keys in Postgres. Add Qdrant only when vectors outgrow pgvector</td></tr>
+              <tr><td data-label="Layer"><span class="name">Embeddings / LLM</span></td><td data-label="Pick">Local Ollama embeddings + the LLM chain (Groq / Cerebras for speed). <b>Not Gemini Free for tenant data</b> (free-tier data-use term) and <b>not OpenRouter free for tenant data</b> (possible provider logging). Per-tenant rate limits so one tenant can’t drain the shared free quotas — this, not code, is the real scaling limit of a $0 SaaS</td></tr>
+              <tr><td data-label="Layer"><span class="name">Ingestion / queues</span></td><td data-label="Pick">A Postgres job table (<span class="mono">FOR UPDATE SKIP LOCKED</span>) + a worker on Oracle; Windmill (AGPL) if you need a workflow UI for yourself. <b>Never expose n8n or Activepieces multi-tenancy to tenants</b></td></tr>
+              <tr><td data-label="Layer"><span class="name">Eval dashboard</span></td><td data-label="Pick"><b>Ragas in CI</b> (nightly GitHub Actions on a fixed golden dataset) → scores pushed to <b>self-hosted Langfuse</b> (MIT core) on Oracle; Grafana optional</td></tr>
+              <tr><td data-label="Layer"><span class="name">Auth</span></td><td data-label="Pick">Supabase Auth free (50k MAU, Mumbai region) or Auth.js (MIT, self-hosted) with your Postgres — pick one Postgres, don’t mix Supabase DB + Neon DB</td></tr>
+              <tr><td data-label="Layer"><span class="name">Observability</span></td><td data-label="Pick">PostHog Cloud free (product analytics), GlitchTip self-hosted or Sentry free (errors), Uptime Kuma</td></tr>
+              <tr><td data-label="Layer"><span class="name">Money</span></td><td data-label="Pick">Polar (merchant-of-record, licences/subscriptions, global tax handled) + Razorpay for Indian customers. <b>Do not sell access hosted on Vercel Hobby or Render Free</b></td></tr>
+            </tbody>
+          </table></div>
+          <p class="reality"><b>Reality check:</b> a $0 SaaS works for a beta with tens of tenants and modest query volume. Free LLM quotas are shared and revocable — the first rupee or dollar of revenue should buy a paid LLM tier, and the provider chain should make that a config change, not a rewrite.</p>
+        </div>
+
+        <div class="tabpanel" id="panel-3" role="tabpanel" aria-labelledby="tabbtn-3">
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Layer</th><th>Pick at $0</th></tr></thead>
+            <tbody>
+              <tr><td data-label="Layer"><span class="name">Frontend / hosting</span></td><td data-label="Pick">Cloudflare Pages (unlimited static bandwidth — ideal for SEO job pages) + Workers for the search API</td></tr>
+              <tr><td data-label="Layer"><span class="name">Data</span></td><td data-label="Pick">Postgres + pgvector on Neon / Supabase (semantic job matching) or the Oracle VM. Dedupe by (company, title, location, source-URL hash); store the source link plus a short summary, not full copied descriptions where a source’s terms require it</td></tr>
+              <tr><td data-label="Layer"><span class="name">Ingestion</span></td><td data-label="Pick">GitHub Actions cron (public repo, unlimited minutes) every few hours. Full-text search: Postgres FTS at $0; Typesense-class alternatives as you grow (check Meilisearch’s current licence before self-hosting it)</td></tr>
+              <tr><td data-label="Layer"><span class="name">Sources — official / public feeds only</span></td><td data-label="Pick"><b>Public ATS APIs</b> (best: no key, employer-published) — Greenhouse, Lever, Ashby, Workable public boards. <b>Arbeitnow</b> (free, no key, 100/page, hourly refresh, link-back requested, EU-heavy). <b>Remotive</b> (free, no key, but delayed 24 h, ≤4 calls/day advised, link-back/credit required, and its terms say no reposting to other job boards — read before aggregating). <b>Adzuna</b> (free key, India coverage, 25/min, 250/day, 2,500/mo — but commercial use is a 14-day trial after which a licence may be required, plus “Jobs by Adzuna” attribution). <b>The Muse</b> (free, link-back, no cloning)</td></tr>
+              <tr><td data-label="Layer"><span class="name">Do not scrape</span></td><td data-label="Pick"><b>LinkedIn, Indeed and ZipRecruiter</b>: their terms/robots prohibit automated scraping or access without permission. JobSpy-style scraping is a ToS, account and legal risk that breaks — it is not a $0 strategy, it’s a liability. For India coverage at $0, lawful sources are Adzuna-IN (within its licence), company ATS boards of Indian startups, and RSS/partner feeds — accept thinner India coverage until you can licence a feed</td></tr>
+              <tr><td data-label="Layer"><span class="name">Analytics / money</span></td><td data-label="Pick">Umami; monetise later via Razorpay / Polar for pro alerts — not via ads on Vercel Hobby (commercial ban)</td></tr>
+            </tbody>
+          </table></div>
+          <p class="src">Sources: <a href="https://jobspipe.dev/blog/free-job-api">jobspipe.dev/blog/free-job-api</a> · <a href="https://hproxy.com/blog/job-scraping">hproxy.com/blog/job-scraping</a> · <a href="https://jobspipe.dev/blog/best-jobs-api-2026">jobspipe.dev/blog/best-jobs-api-2026</a></p>
+        </div>
+
+        <div class="legend" aria-label="Classification legend">
+          <span><span class="badge b-a">A</span> open-source / self-hostable</span>
+          <span><span class="badge b-b">B</span> free managed, perpetual</span>
+          <span><span class="badge b-c">C</span> free tier with hard limits</span>
+          <span><span class="badge b-d">D</span> community / variable — needs a fallback</span>
+          <span><span class="badge b-e">E</span> paid / unsuitable</span>
+        </div>
+      </section>
+
+      <!-- ================= LAYERS ================= -->
+      <section id="layers">
+        <div class="sec-head"><span class="sec-num">02</span><h2 class="sec-title">Layer by layer: what’s free, and where it ends</h2></div>
+        <p class="sec-sub">The full research across ten layers. <span class="star">★</span> marks the recommended default. “Where free ends” is the column that matters — read it before committing to any row.</p>
+
+        <h3 class="layer-title">(a) LLM inference</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Option</th><th>Licence / type</th><th>Real free limit (late 2026)</th><th>Where free ends / fallback</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td data-label="Option"><span class="name">Groq (hosted APIs) <span class="star">★</span></span><span class="sub">Best default — fastest. No card for Free.</span></td>
+              <td data-label="Licence">Proprietary API serving open-weight models (gpt-oss, Llama, Qwen)</td>
+              <td data-label="Free limit">Per-model, org-level: gpt-oss-120b/20b <span class="mono">30 RPM, 1,000 RPD, 8K TPM, 200K TPD</span>; small 8B-class <span class="mono">30 RPM, 14,400 RPD, 500K TPD</span> in older tables — the model roster and limits changed during 2026, so check the console</td>
+              <td data-label="Where free ends">429 at cap; the Developer tier is pay-as-you-go (add a payment method, no plan fee). Fallback: chain to Cerebras / Gemini</td></tr>
+            <tr><td data-label="Option"><span class="name">Google Gemini API (AI Studio)</span></td>
+              <td data-label="Licence">Proprietary API; Flash / Flash-Lite + Gemma free of charge</td>
+              <td data-label="Free limit"><b>Google no longer publishes free RPM/RPD in its docs — numbers are shown per-project in AI Studio.</b> A Dec 2025 cut was widely reported: 2.5 Flash ~20 RPD, Pro removed from free; newer Flash lines are the free path. <b>Free-tier content is used to improve Google products</b> (paid tier: it is not)</td>
+              <td data-label="Where free ends">Pro/preview models, Imagen/Veo and Search grounding are paid / billing-gated. Never use free Gemini for confidential tenant data in the RAG SaaS, because of the data-use term</td></tr>
+            <tr><td data-label="Option"><span class="name">Cerebras</span></td>
+              <td data-label="Licence">Proprietary API, open-weight models</td>
+              <td data-label="Free limit">~<span class="mono">5 RPM, 30K TPM, 1M TPD</span>; $5 signup credit in some accounts. One tracker notes the Free <i>Trial</i> may require a payment method — verify at signup</td>
+              <td data-label="Where free ends">Developer from $10 lifts limits ~10×</td></tr>
+            <tr><td data-label="Option"><span class="name">OpenRouter <span class="mono">:free</span></span></td>
+              <td data-label="Licence">Proprietary router — not open source</td>
+              <td data-label="Free limit"><span class="mono">20 RPM, 50 RPD</span> on <span class="mono">:free</span> models. The <span class="mono">1,000 RPD</span> tier unlocks <b>only after you have ever bought $10 of credits</b> — so the higher tier is not $0. The free roster rotates, upstream limits are low, and prompts may be logged by community providers</td>
+              <td data-label="Where free ends">Paid models are pay-as-you-go; a negative balance can return 402 even on free calls</td></tr>
+            <tr class="pick"><td data-label="Option"><span class="name">Cloudflare Workers AI <span class="star">★</span></span><span class="sub">Underused. Open-weight catalogue incl. embeddings + FLUX schnell.</span></td>
+              <td data-label="Licence">Proprietary API</td>
+              <td data-label="Free limit"><b>Official: 10,000 Neurons/day free on both Free and Paid plans</b>, reset 00:00 UTC; overage fails on Free rather than billing. Measured Oct 2026: ≈490 Llama-3.1-8B replies (~580 tok), ≈83 70B replies, or ≈57 FLUX schnell images/day — all modalities share one pool</td>
+              <td data-label="Where free ends">Workers Paid is a $5/mo minimum for overage at $0.011 / 1,000 Neurons</td></tr>
+            <tr><td data-label="Option"><span class="name">Hugging Face Inference Providers</span> <span class="badge b-mid">caution</span></td>
+              <td data-label="Licence">Router over partners; the Hub itself is free for public repos</td>
+              <td data-label="Free limit"><b>Effectively not free any more:</b> sources conflict between <span class="mono">$0.10/month credit</span> and <span class="mono">no monthly credits for free accounts</span> (buy credits, or PRO $9/mo for $2). Either way it buys almost nothing</td>
+              <td data-label="Where free ends">Use HF as a model <i>download</i> hub, not as your inference budget</td></tr>
+            <tr class="pick"><td data-label="Option"><span class="name">Ollama (local / self-host) <span class="star">★</span></span><span class="sub">The true $0 fallback.</span></td>
+              <td data-label="Licence"><b>MIT</b>. Runs GGUF quantised models on CPU/GPU</td>
+              <td data-label="Free limit"><b>No rate limit, no data leaves the machine</b> — the limit is your hardware. Beginner reality: 3–9B Q4 models (Qwen, Gemma, Phi, small Llama) are usable on 8–16 GB RAM with no GPU, slowly; 27B Q4 ≈ 17 GB. The Oracle ARM VM (12 GB) runs small models only, slowly</td>
+              <td data-label="Where free ends">The cost is hardware, electricity and time. <b>vLLM (Apache-2.0)</b> is the multi-user server version but needs a real GPU (the same model in BF16 uses ≈3× the GGUF RAM) — not a beginner-laptop or Oracle-ARM choice</td></tr>
+            <tr><td data-label="Option"><span class="name">Model licences</span></td>
+              <td data-label="Licence" colspan="2"><b>Truly permissive:</b> Qwen (Apache-2.0), Mistral 7B / Mixtral (Apache-2.0), DeepSeek (MIT), Phi (MIT), gpt-oss (Apache-2.0), Gemma 4 (Apache-2.0 in 2026 sources). <b>Llama is NOT OSI open source</b> — a custom Llama Community Licence with “Built with Llama” attribution, a separate licence above 700M MAU, and EU multimodal restrictions. Fine for a solo dev, but call it open-<i>weight</i>, not open-source</td>
+              <td data-label="Where free ends">For maximum legal simplicity in products, default to Qwen / gpt-oss / Gemma / Phi</td></tr>
+          </tbody>
+        </table></div>
+        <p class="src">Sources: <a href="https://continuumcode.ai/guides/free-llm-api/">continuumcode.ai/guides/free-llm-api</a> · <a href="https://klymentiev.com/blog/groq-api-free-tier">klymentiev.com/blog/groq-api-free-tier</a> · <a href="https://opengpuradar.com/free-llm-apis">opengpuradar.com/free-llm-apis</a> · <a href="https://developers.cloudflare.com/workers-ai/platform/pricing/">developers.cloudflare.com/workers-ai/platform/pricing</a> · <a href="https://klymentiev.com/blog/huggingface-inference-api">klymentiev.com/blog/huggingface-inference-api</a> · <a href="https://aifree.dev/learn/free-hugging-face-inference">aifree.dev/learn/free-hugging-face-inference</a> · <a href="https://dev.to/gpunz/ollama-vs-lm-studio-vs-llamacpp-vs-vllm-which-to-pick-and-how-much-vram-each-needs-3647">dev.to — Ollama vs vLLM VRAM guide</a> · <a href="https://gigagpu.com/open-weight-licensing-comparison/">gigagpu.com/open-weight-licensing-comparison</a></p>
+
+        <h3 class="layer-title">(b) Text-to-speech — all local, except edge-tts</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Option</th><th>Licence</th><th>Local? Quality</th><th>Verdict</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td data-label="Option"><span class="name">Kokoro-82M <span class="star">★</span></span><span class="sub">Default</span></td>
+              <td data-label="Licence"><b>Apache-2.0</b> (code + weights)</td>
+              <td data-label="Local / quality">Yes — CPU-fast, 82M params, 8 languages, ~best quality-per-size; no voice cloning; sub-100 ms-class, runs even in a browser</td>
+              <td data-label="Verdict"><span class="badge b-ok">Use</span> for monetised / commercial video</td></tr>
+            <tr><td data-label="Option"><span class="name">Piper</span></td>
+              <td data-label="Licence"><b>Changed / conflicting:</b> the original project was MIT; the current piper1-gpl engine is <b>GPL-3.0</b>, and <b>each voice has its own licence</b> — check the specific voice</td>
+              <td data-label="Local / quality">Yes — CPU / Raspberry Pi, very fast, slightly robotic, many locales (Indic voices vary)</td>
+              <td data-label="Verdict"><span class="badge b-mid">Careful</span> Fine commercially under GPL if you comply <i>and</i> the voice allows it. Do not quote “Piper = MIT” from old blogs</td></tr>
+            <tr><td data-label="Option"><span class="name">Coqui XTTS-v2</span></td>
+              <td data-label="Licence">Toolkit MPL-2.0; <b>model CPML — non-commercial only</b></td>
+              <td data-label="Local / quality">Yes — GPU 4–6 GB, excellent cloning from ~6 s of audio, 17 languages</td>
+              <td data-label="Verdict"><span class="badge b-no">Not for money</span> NOT free for monetised YouTube or paid products. Coqui shut down in Jan 2024, so no commercial licence is even buyable. Personal / research only</td></tr>
+            <tr><td data-label="Option"><span class="name">edge-tts</span></td>
+              <td data-label="Licence">Library LGPLv3; an <b>unofficial client for Microsoft Edge Read Aloud — not a Microsoft API, not local (Microsoft cloud), no key, no SLA</b></td>
+              <td data-label="Local / quality">No — cloud. Excellent neural voices incl. en-IN</td>
+              <td data-label="Verdict"><span class="badge b-mid">Drafts only</span> The maintainer warns it can stop at any time, and commercial use without paid Azure may breach Microsoft’s terms. Do not build a monetised pipeline on it</td></tr>
+            <tr><td data-label="Option"><span class="name">F5-TTS</span></td>
+              <td data-label="Licence">Code MIT, <b>weights CC-BY-NC-4.0</b></td>
+              <td data-label="Local / quality">Local GPU, excellent cloning</td>
+              <td data-label="Verdict"><span class="badge b-no">Not for money</span> Non-commercial weights — the same trap as XTTS</td></tr>
+          </tbody>
+        </table></div>
+        <p class="src">Sources: <a href="https://www.promptquorum.com/power-local-llm/local-tts-voice-cloning-piper-coqui-xtts">promptquorum.com — local TTS &amp; voice cloning</a> · <a href="https://www.cartesia.ai/learn/open-source-tts">cartesia.ai/learn/open-source-tts</a> · <a href="https://localaifrontier.com/blog/best-local-tts-models/">localaifrontier.com/blog/best-local-tts-models</a> · <a href="https://github.com/arunskiorg/benarunskiutils/blob/HEAD/skills/tts/README.md">github.com/arunskiorg — TTS skill notes</a></p>
+
+        <h3 class="layer-title">(c) Video generation / editing — what is truly free for commercial use</h3>
+        <p class="layer-note">There is no free open-source text-to-video model in this stack that matches hosted Veo/Runway quality on beginner hardware. The compliant $0 pattern is <b>motion graphics + generated stills + TTS + FFmpeg</b> — not “AI video generation.”</p>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Option</th><th>Licence</th><th>Commercial output?</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td data-label="Option"><span class="name">FFmpeg <span class="star">★</span></span><span class="sub">Backbone</span></td>
+              <td data-label="Licence"><b>LGPL-2.1+; GPL-2+ if built with GPL parts (e.g. libx264)</b></td>
+              <td data-label="Commercial?"><span class="badge b-ok">Yes</span> The licence governs the software, not your videos; mind codec patents separately</td>
+              <td data-label="Notes">CLI concat, caption burn-in, loudnorm, 9:16 / 16:9 renders. Every pipeline ends here</td></tr>
+            <tr class="pick"><td data-label="Option"><span class="name">HyperFrames (HeyGen) <span class="star">★</span></span><span class="sub">The Remotion replacement</span></td>
+              <td data-label="Licence"><b>Apache-2.0</b></td>
+              <td data-label="Commercial?"><span class="badge b-ok">Yes</span> Any team size, no per-render fee, local rendering free</td>
+              <td data-label="Notes">HTML/CSS/GSAP → headless Chrome → MP4. Pre-1.0 (v0.8.x, frequent releases — pin a version). HeyGen’s hosted cloud, voices and avatars are separate paid services</td></tr>
+            <tr><td data-label="Option"><span class="name">Remotion</span> <span class="badge b-mid">caution</span></td>
+              <td data-label="Licence"><b>Remotion Licence — source-available, NOT OSI open source</b></td>
+              <td data-label="Commercial?"><span class="badge b-mid">≤3 people</span> $0 only for individuals, non-profits and for-profit companies with ≤3 people (incl. commercial use)</td>
+              <td data-label="Notes">At 4+ people: Creators $25/seat/mo; Automators $0.01/render with a <b>$100/mo minimum</b>; Enterprise from $500/mo. Cloud rendering (your AWS Lambda) is extra. Solo today: legal at $0. Growth trap tomorrow — prefer HyperFrames if starting fresh</td></tr>
+            <tr><td data-label="Option"><span class="name">MoviePy</span></td>
+              <td data-label="Licence"><b>MIT</b></td>
+              <td data-label="Commercial?"><span class="badge b-ok">Yes</span></td>
+              <td data-label="Notes">Python cuts / composites / text; slow (CPU/numpy) for long-form — use it for assembly logic, FFmpeg for encoding</td></tr>
+            <tr><td data-label="Option"><span class="name">Manim Community</span></td>
+              <td data-label="Licence"><b>MIT</b></td>
+              <td data-label="Commercial?"><span class="badge b-ok">Yes</span></td>
+              <td data-label="Notes">Math / diagram explainers only; needs LaTeX for MathTex</td></tr>
+            <tr><td data-label="Option"><span class="name">Kdenlive / OpenShot / Shotcut</span></td>
+              <td data-label="Licence"><b>GPL-3.0</b> (libopenshot LGPL-3.0)</td>
+              <td data-label="Commercial?"><span class="badge b-ok">Yes</span> GPL places no restriction on videos you make; no watermark</td>
+              <td data-label="Notes">Manual desktop editing and review, not headless automation (the MLT / <span class="mono">melt</span> XML layer under Kdenlive/Shotcut is the automatable part)</td></tr>
+            <tr><td data-label="Option"><span class="name">Motion Canvas / Revideo</span></td>
+              <td data-label="Licence"><b>MIT</b></td>
+              <td data-label="Commercial?"><span class="badge b-ok">Yes</span></td>
+              <td data-label="Notes">TypeScript motion graphics; smaller ecosystems</td></tr>
+          </tbody>
+        </table></div>
+        <p class="src">Sources: <a href="https://ffmpeg.org/legal.html">ffmpeg.org/legal</a> · <a href="https://www.stork.ai/en/remotion">stork.ai/en/remotion</a> · <a href="https://www.growthcab.com/hyperframes-vs-remotion">growthcab.com/hyperframes-vs-remotion</a> · <a href="https://moonjar.ai/blog/remotion-alternatives">moonjar.ai/blog/remotion-alternatives</a> · <a href="https://blog.openreplay.com/free-video-editors-developers/">blog.openreplay.com — free video editors for developers</a></p>
+
+        <h3 class="layer-title">(d) Image / thumbnail generation</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Option</th><th>Licence</th><th>Verdict</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td data-label="Option"><span class="name">FLUX.1 schnell / FLUX.2 klein 4B <span class="star">★</span></span></td>
+              <td data-label="Licence"><b>Apache-2.0</b></td>
+              <td data-label="Verdict">Fully commercial. Local via ComfyUI (schnell 12B: ~12–16 GB VRAM quantised, 24 GB+ full; klein 4B ~13 GB) <b>or ~57 images/day free via Workers AI</b> (shared Neuron pool) — the beginner path with no GPU</td></tr>
+            <tr><td data-label="Option"><span class="name">FLUX.1 dev / FLUX.2 dev</span> <span class="badge b-mid">caution</span></td>
+              <td data-label="Licence"><b>BFL Non-Commercial licence</b></td>
+              <td data-label="Verdict"><span class="badge b-no">Not commercial</span> Not for commercial products without a paid BFL licence. The dev licence has nuanced output terms — do not rely on “outputs are OK” summaries for a business; use schnell / klein</td></tr>
+            <tr><td data-label="Option"><span class="name">Stable Diffusion 3.5</span></td>
+              <td data-label="Licence">Stability Community Licence</td>
+              <td data-label="Verdict">Free commercial <b>only under $1M annual revenue</b>; enterprise licence above that. SD 1.5 / SDXL (CreativeML Open RAIL++-M) allow commercial use with use-restrictions — still a safe local option on modest GPUs (8 GB)</td></tr>
+            <tr><td data-label="Option"><span class="name">Qwen-Image</span></td>
+              <td data-label="Licence">Apache-2.0 (per 2026 roundups)</td>
+              <td data-label="Verdict">Best local option for <i>readable text</i> in thumbnails and posters</td></tr>
+            <tr><td data-label="Option"><span class="name">ComfyUI</span></td>
+              <td data-label="Licence">GPL-3.0</td>
+              <td data-label="Verdict">The local runner UI / node graph. InvokeAI (Apache-2.0) is the friendlier canvas alternative. Note: on CPU-only hardware, generation is minutes-per-image — run bursts on Kaggle’s free GPU tier or use Workers AI instead (see appendix notes)</td></tr>
+            <tr class="pick"><td data-label="Option"><span class="name">Penpot <span class="star">★</span></span><span class="sub">The Canva-free alternative</span></td>
+              <td data-label="Licence"><b>MPL-2.0</b>, self-hostable; free cloud (unlimited files, ≤8 editors, 10 GB in Jul 2026 sources)</td>
+              <td data-label="Verdict">Figma-like — <i>not</i> a Canva clone: no template/stock library, no magic resize or background remover. For thumbnails/carousels, the better $0 pattern is an <b>HTML/CSS template → HyperFrames/Chromium screenshot or FFmpeg overlay</b> (repeatable, automatable), plus Penpot / GIMP (GPL-3.0) / Inkscape for hand design</td></tr>
+            <tr><td data-label="Option"><span class="name">Canva Free</span></td>
+              <td data-label="Licence">Proprietary — not open source</td>
+              <td data-label="Verdict">A free tier exists, but Pro assets and brand features are gated and designs are locked in Canva format — not part of a 100% OSS stack</td></tr>
+          </tbody>
+        </table></div>
+        <p class="src">Sources: <a href="https://www.aipivotguide.com/guides/best-open-source-ai-models-2026.html">aipivotguide.com — best open-source AI models 2026</a> · <a href="https://www.femaleswitch.com/directories/tpost/open-source-dall-e-alternatives">femaleswitch.com — open-source DALL·E alternatives</a> · <a href="https://openinstead.dev/alternatives-to/canva/">openinstead.dev/alternatives-to/canva</a> · <a href="https://freealternatives.to/best/design-whiteboarding">freealternatives.to — design &amp; whiteboarding</a></p>
+
+        <h3 class="layer-title">(e) Hosting / compute free tiers — exact quotas</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Platform</th><th>Free quota (late 2026)</th><th>Where free ends — read this</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td data-label="Platform"><span class="name">Cloudflare Pages <span class="star">★</span></span><span class="sub">Default frontend</span></td>
+              <td data-label="Free quota">Unlimited static requests/bandwidth, <b>500 builds/mo, 1 concurrent build, 100 projects, 100 custom domains/project, 20k files, 25 MiB/file</b></td>
+              <td data-label="Where free ends">Pages Functions consume Workers quota</td></tr>
+            <tr class="pick"><td data-label="Platform"><span class="name">Cloudflare Workers <span class="star">★</span></span><span class="sub">Default API / edge</span></td>
+              <td data-label="Free quota"><b>100,000 req/day, 10 ms CPU/invocation, 128 MB</b>; Cron Triggers included; hard stop (Error 1027), no bill on Free</td>
+              <td data-label="Where free ends">Paid is a $5/mo minimum (10M req included). The 10 ms CPU limit kills heavy RAG/video work inside a Worker — do that on Oracle / GitHub Actions</td></tr>
+            <tr class="pick"><td data-label="Platform"><span class="name">Cloudflare R2 <span class="star">★</span></span><span class="sub">Files / video staging</span></td>
+              <td data-label="Free quota"><b>10 GB-month, 1M Class A ops/mo, 10M Class B ops/mo, $0 egress</b></td>
+              <td data-label="Where free ends">Overages are billed — R2 setup may require billing details; set alerts. It is the perfect public-HTTPS media host that Meta/YouTube ingest requires</td></tr>
+            <tr><td data-label="Platform"><span class="name">Cloudflare D1 / KV / Queues</span></td>
+              <td data-label="Free quota">D1: 5M rows read/day, 100k written/day, 5 GB total (500 MB/DB free). KV: 100k reads/day, 1k writes/day, 1 GB. Queues: 10k ops/day</td>
+              <td data-label="Where free ends">Daily caps fail closed until 00:00 UTC</td></tr>
+            <tr><td data-label="Platform"><span class="name">Vercel Hobby</span> <span class="badge b-mid">caution</span></td>
+              <td data-label="Free quota">100 GB transfer/mo, 1M function invocations, 4 CPU-hours</td>
+              <td data-label="Where free ends"><b>Hobby is personal and NON-COMMERCIAL only — ads or taking payments counts as commercial and means Pro at $20/seat/mo.</b> Do not host the SaaS, a monetised product site, or a store on Hobby</td></tr>
+            <tr><td data-label="Platform"><span class="name">Netlify Free</span></td>
+              <td data-label="Free quota"><b>300 credits/mo</b> (≈15 GB bandwidth <i>or</i> ~20 production deploys at 15 credits each — one shared pool)</td>
+              <td data-label="Where free ends">Credits exhausted = <b>all projects on the team pause</b>. Personal is $9/mo / 1,000 credits</td></tr>
+            <tr><td data-label="Platform"><span class="name">Supabase Free</span></td>
+              <td data-label="Free quota">500 MB DB, 1 GB files, 5 GB egress, 50k MAU auth, 500k Edge Function invocations, <b>2 active projects; Mumbai region available</b></td>
+              <td data-label="Where free ends"><b>Pauses after 1 week of inactivity (manual restore)</b>; no backups. Pro from $25/mo. The platform is Apache-2.0 / self-hostable but heavy (~10 containers, ≥4 GB RAM)</td></tr>
+            <tr class="pick"><td data-label="Platform"><span class="name">Neon Free <span class="star">★</span></span><span class="sub">Postgres for the SaaS / jobs app</span></td>
+              <td data-label="Free quota"><b>1 GB/project (20 GB account), 100 CU-hours/project/mo, up to 100 projects, 5 GB egress, scale-to-zero after 5 min (auto-wakes in ~0.5 s)</b></td>
+              <td data-label="Where free ends">No India region (nearest is Singapore). The Launch plan is usage-based with no monthly minimum — a gentle first paid step</td></tr>
+            <tr><td data-label="Platform"><span class="name">Render Free</span></td>
+              <td data-label="Free quota">750 instance-hours/mo, 512 MB / 0.1 CPU web service, 500 build-min/mo, 5 GB egress</td>
+              <td data-label="Where free ends"><b>Sleeps after 15 min idle (~1 min wake); free Postgres (1 GB) EXPIRES after 30 days.</b> Demo only</td></tr>
+            <tr><td data-label="Platform"><span class="name">Railway</span> <span class="badge b-mid">caution</span></td>
+              <td data-label="Free quota"><b>Not a free tier:</b> a $5 trial credit / 30 days, then a Free plan of $1 usage/mo (1 vCPU / 0.5 GB per service)</td>
+              <td data-label="Where free ends">Any always-on service exhausts it. Hobby is $5/mo</td></tr>
+            <tr><td data-label="Platform"><span class="name">Fly.io</span></td>
+              <td data-label="Free quota">Trial only (e.g. 2 machine-hours / 7 days), card required</td>
+              <td data-label="Where free ends">No free tier for new signups</td></tr>
+            <tr><td data-label="Platform"><span class="name">Hugging Face Spaces</span> <span class="badge b-mid">caution</span></td>
+              <td data-label="Free quota">CPU Basic listed as 2 vCPU / 16 GB / 50 GB, sleeps after 48 h idle; ZeroGPU <b>5 min GPU/day free, max 2 ZeroGPU Spaces</b></td>
+              <td data-label="Where free ends">Conflicting Oct 2026 reports: free accounts may no longer be able to create new Gradio/Docker Spaces (static + ZeroGPU only); PRO $9/mo unlocks creation + 40 min/day. <b>Treat Spaces as demo hosting, never production</b></td></tr>
+            <tr class="pick"><td data-label="Platform"><span class="name">GitHub Actions <span class="star">★</span></span><span class="sub">The automation engine</span></td>
+              <td data-label="Free quota"><b>Public repos: unlimited minutes on standard runners. Private (Free plan): 2,000 min/mo, 500 MB storage</b></td>
+              <td data-label="Where free ends">Cron (<span class="mono">schedule</span>) can be delayed under load, runs only on the default branch, and scheduled workflows are disabled after 60 days of repo inactivity in some cases. Windows/macOS minutes multiply (10× macOS in private) — stay on Linux</td></tr>
+            <tr class="pick"><td data-label="Platform"><span class="name">Oracle Cloud Always Free <span class="star">★★</span></span><span class="sub">The free VPS</span></td>
+              <td data-label="Free quota"><b>Changed 15 Jun 2026 — halved to 2 OCPU / 12 GB RAM Ampere A1 total</b> (1,500 OCPU-h + 9,000 GB-h/mo), 200 GB block storage, 10 TB/mo egress, plus 2× E2.1.Micro (1 GB), 20 GB object storage, 2 Autonomous DBs. Thousands of guides still quote the old 4 OCPU / 24 GB</td>
+              <td data-label="Where free ends">A card (not prepaid/virtual) is required for identity verification; the home region is permanent; popular regions are often “out of capacity”; <b>idle reclamation: instances under 20% CPU/mem/network for 7 days may be stopped</b>. This one VM replaces Render/Railway plus self-hosted n8n/Postiz/Umami/Langfuse</td></tr>
+          </tbody>
+        </table></div>
+        <p class="src">Sources: <a href="https://stacksfree.com/blog/cloudflare-only-free-stack-2026/">stacksfree.com — Cloudflare-only free stack 2026</a> · <a href="https://www.techplained.com/best-free-hosting">techplained.com/best-free-hosting</a> · <a href="https://stackwrite.com/blog/free-railway-alternatives-2026/">stackwrite.com — free Railway alternatives 2026</a> · <a href="https://stackwrite.com/blog/free-tier-databases-2026/">stackwrite.com — free-tier databases 2026</a> · <a href="https://wowsql.com/blog/managed-postgres-free-tier-india">wowsql.com — managed Postgres free tier, India</a> · <a href="https://trulyammar.vercel.app/finds/hack-oracle">trulyammar.vercel.app — Oracle free tier notes</a> · <a href="https://github.com/wendychen330/oci-arm-retry/blob/HEAD/README.md">github.com/wendychen330/oci-arm-retry</a> · <a href="https://www.codetalenthub.io/github-actions-free-tier/">codetalenthub.io — GitHub Actions free tier</a></p>
+
+        <h3 class="layer-title">(f) Databases / vector</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Option</th><th>Licence</th><th>Fit</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td data-label="Option"><span class="name">Postgres + pgvector <span class="star">★</span></span><span class="sub">Default for all 3 systems</span></td>
+              <td data-label="Licence">PostgreSQL Licence (permissive); pgvector under the PostgreSQL Licence</td>
+              <td data-label="Fit">One DB for tenants, users, jobs and embeddings. Multi-tenancy = <span class="mono">tenant_id</span> on every table + <b>Postgres Row-Level Security</b>. HNSW/IVF indexes are adequate to hundreds of thousands of vectors. Hosted free via Neon/Supabase, or self-hosted on Oracle at $0 with no storage cap except disk</td></tr>
+            <tr><td data-label="Option"><span class="name">Qdrant</span></td>
+              <td data-label="Licence"><b>Apache-2.0</b>, Rust, self-host via Docker</td>
+              <td data-label="Fit">The best dedicated vector DB when pgvector outgrows: payload filtering, hybrid dense+sparse. Qdrant Cloud has a small permanent free cluster (1 GB in practitioner guides). It’s an extra service to operate — don’t add it on day 1</td></tr>
+            <tr><td data-label="Option"><span class="name">Chroma</span></td>
+              <td data-label="Licence"><b>Apache-2.0</b></td>
+              <td data-label="Fit">Easiest local prototype (embedded/persistent). The SQLite-backed default is not fork/multi-worker safe — prototype/local only; migrate to pgvector for the SaaS</td></tr>
+            <tr><td data-label="Option"><span class="name">LanceDB</span></td>
+              <td data-label="Licence"><b>Apache-2.0 core, open-core</b> (some cloud/enterprise features paid)</td>
+              <td data-label="Fit">Yes, it <i>is</i> open source for the embedded library: file-based, multimodal, great for local/offline RAG and the job app’s local index. Not a multi-tenant server DB</td></tr>
+            <tr><td data-label="Option"><span class="name">Pinecone</span></td>
+              <td data-label="Licence">Proprietary</td>
+              <td data-label="Fit"><span class="badge b-no">Excluded</span> Not open source — excluded from a 100% OSS stack despite free-tier marketing</td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout">
+          <p><b>Embeddings at $0:</b> local Ollama embedding models (e.g. nomic-embed-text / bge-class — check each model’s licence) or Workers AI embeddings from the shared 10k Neuron pool. This avoids per-call embedding bills entirely — important, because RAG evaluation and re-indexing multiply embedding calls.</p>
+          <p><b>RAG evaluation dashboard (System 2):</b> <b>Ragas (Apache-2.0)</b> — faithfulness, context precision/recall, answer relevancy — runs in CI/notebooks and has no dashboard itself; pair it with <b>Langfuse (MIT core, self-host via Docker; the <span class="mono">ee/</span> enterprise modules are paid-licence)</b> for the traces/datasets/scores dashboard. Langfuse Cloud’s free tier was reported at 50k events/mo. Phoenix is Elastic Licence 2.0 (source-available, not OSI) — flag it if you choose it.</p>
+        </div>
+        <p class="src">Sources: <a href="https://geekflare.com/open-source/vector-database/">geekflare.com — open-source vector databases</a> · <a href="https://krunalkanojiya.com/blog/best-open-source-vector-databases">krunalkanojiya.com — best open-source vector databases</a> · <a href="https://www.bestfreewebresources.com/best-vector-database-local-rag-2026">bestfreewebresources.com — vector DBs for local RAG 2026</a> · <a href="https://futureagi.com/blog/best-rag-evaluation-tools-2026/">futureagi.com — best RAG evaluation tools 2026</a> · <a href="https://www.aievals.co/tools/langfuse">aievals.co/tools/langfuse</a> · <a href="https://awesomeagents.ai/tools/best-llm-eval-tools-2026/">awesomeagents.ai — best LLM eval tools 2026</a></p>
+
+        <h3 class="layer-title">(g) Scheduling / queues</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Option</th><th>Licence</th><th>Free use / trap</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td data-label="Option"><span class="name">GitHub Actions cron <span class="star">★</span></span><span class="sub">Start here</span></td>
+              <td data-label="Licence">Proprietary platform; your workflows are yours</td>
+              <td data-label="Free use / trap">The best $0 scheduler for content generation, job ingestion and backups. Write idempotent jobs and keep state via commits/API, because cron timing is not guaranteed</td></tr>
+            <tr><td data-label="Option"><span class="name">Cloudflare Cron Triggers / Queues</span></td>
+              <td data-label="Licence">Proprietary platform</td>
+              <td data-label="Free use / trap">Included in Workers Free (Queues: 10k ops/day). Good for lightweight triggers that hit an Oracle endpoint</td></tr>
+            <tr><td data-label="Option"><span class="name">n8n self-hosted</span> <span class="badge b-mid">caution</span></td>
+              <td data-label="Licence"><b>Sustainable Use Licence (fair-code) — NOT OSI open source.</b> Source-available</td>
+              <td data-label="Free use / trap"><b>Free, unlimited executions/workflows for your own internal business or personal use</b> — System 1’s own content pipeline is explicitly fine. <b>You may NOT offer n8n to others as a service, let tenants/customers create or edit workflows, or white-label/embed it without a commercial licence.</b> So: never expose n8n inside System 2 to tenants. n8n Cloud has no free plan (trial only)</td></tr>
+            <tr><td data-label="Option"><span class="name">Windmill self-hosted</span></td>
+              <td data-label="Licence"><b>AGPLv3 core</b> + proprietary enterprise snippets (SSO etc. needs a paid key, ~$120/mo entry in one comparison)</td>
+              <td data-label="Free use / trap">Code-first (Python/TS/SQL/Bash), Postgres-only queue, unlimited self-hosted executions. Heavier (~4 GB-class deployments in practitioner reports) — on Oracle it can run alongside other services only with care</td></tr>
+            <tr><td data-label="Option"><span class="name">Activepieces self-hosted</span></td>
+              <td data-label="Licence"><b>MIT core</b> + paid enterprise (embed SDK, multi-tenant projects, RBAC, SSO are EE)</td>
+              <td data-label="Free use / trap">The closest visual n8n replacement with a true MIT core for your own use; the multi-tenant features a SaaS would want are exactly the paid ones</td></tr>
+            <tr><td data-label="Option"><span class="name">Trigger.dev</span></td>
+              <td data-label="Licence">Apache-2.0 (per comparisons)</td>
+              <td data-label="Free use / trap">Durable TypeScript background jobs. Cloud is usage-priced (runs free in DEV only, in the sources checked); the self-host stack is heavy (webapp + supervisor + registry + object storage, ClickHouse recommended, 12 GB+ class) — overkill for a solo $0 start</td></tr>
+            <tr class="pick"><td data-label="Option"><span class="name">Simplest true-OSS queue <span class="star">★</span></span></td>
+              <td data-label="Licence">—</td>
+              <td data-label="Free use / trap"><b>Postgres itself:</b> a <span class="mono">jobs</span> table + a <span class="mono">FOR UPDATE SKIP LOCKED</span> worker, or Redis (note Redis 8’s tri-licence RSAL/SSPL/AGPL — prefer <b>Valkey, BSD</b>) + a small worker on Oracle. Zero new licences, zero services to learn</td></tr>
+          </tbody>
+        </table></div>
+        <p class="src">Sources: <a href="https://findstack.com/resources/what-is-n8n">findstack.com — what is n8n</a> · <a href="https://www.ssdnodes.com/learn/is-n8n-free-community-vs-enterprise">ssdnodes.com — is n8n free</a> · <a href="https://www.gamut.so/blog/n8n-alternatives">gamut.so/blog/n8n-alternatives</a> · <a href="https://www.activepieces.com/blog/windmill-license-explained-agplv3-vs-enterprise-in-2026">activepieces.com — Windmill licence explained</a></p>
+
+        <h3 class="layer-title">(h) Social publishing via official APIs</h3>
+        <div class="callout">
+          <p><b>Meta — Instagram Graph / Instagram Platform API.</b> A <b>Professional account only (Business or Creator)</b> — personal accounts cannot publish via API at all. Two login paths: Instagram Login (no Facebook Page needed; permissions <span class="mono">instagram_business_basic</span> + <span class="mono">instagram_business_content_publish</span>) or Facebook Login (the IG account must be linked to a Facebook Page; <span class="mono">instagram_content_publish</span> etc.).</p>
+          <p><b>Your own account:</b> you can develop and test in app Dev Mode without full review. <b>Publishing for other people’s accounts requires Meta App Review</b> (per-permission screencast submissions; guides report 2–4 weeks per submission) plus business verification.</p>
+          <p><b>Flow:</b> media must sit at a <b>public HTTPS URL</b> (use R2) → create a media container → poll until <span class="mono">FINISHED</span> → <span class="mono">media_publish</span>. Carousels of up to 10 items count as one post. <b>Cap: 100 API-published posts per rolling 24 h per account.</b> No API fee is published.</p>
+        </div>
+        <div class="callout warn">
+          <p><b>YouTube Data API v3 — quota changed, and sources conflict.</b> OAuth 2.0 with the <span class="mono">youtube.upload</span> scope is required to upload (an API key cannot upload); custom thumbnails need a verified channel.</p>
+          <p>Older / official-style guides (still ranking) say <b>10,000 units/day per project, <span class="mono">videos.insert</span> = 1,600 units (≈6 uploads/day), <span class="mono">search.list</span> = 100, reads = 1, writes = 50</b>, reset at midnight Pacific, no paid tier — increases only via an audit/extension form. Newer Oct 2026 guides reading the current method docs say <b><span class="mono">videos.insert</span> and <span class="mono">search.list</span> moved to dedicated buckets (~100 calls/day each)</b>, separate from the 10,000-unit pool, after a Dec 2025 / 1 Jun 2026 change.</p>
+          <p>The <b>unverified-project private-lock</b> is also in dispute: the long-standing rule (projects created after 28 Jul 2020) locked unverified-project uploads to private with no appeal until a YouTube API compliance audit; an Oct 21 2026 check of the current <span class="mono">videos.insert</span> docs says uploads are <i>no longer</i> restricted to private, while other Oct 2026 guides still instruct passing the audit first.</p>
+          <p><b>Action — do not guess:</b> check your own Google Cloud Console quota page and the current <span class="mono">videos.insert</span> reference before designing the cadence; submit the API audit / quota-extension form early anyway if you want higher quota or to publish for others, and test one upload’s final privacy status in Studio. Either regime easily supports a sane cadence of 1 long-form video/day plus Shorts — quota is not the binding constraint; Partner Program policy (next section) is.</p>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Open-source scheduler</th><th>Licence</th><th>Reality</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Tool"><span class="name">Postiz</span></td>
+              <td data-label="Licence"><b>AGPL-3.0</b>, genuinely open source</td>
+              <td data-label="Reality">Self-host free forever (Docker: Postgres + Redis + Temporal — heavy); unlimited channels/posts self-hosted. <b>Cloud has NO free tier</b> (7-day trial, then from $29/mo). Self-hosting does <i>not</i> remove platform gatekeeping: <b>you must create and get approved your own developer app for each network</b> (Meta/YouTube/TikTok approvals can take weeks) and bring your own AI keys. AGPL: if you modify it and offer it as a network service to others, you must share your modifications. For a solo own-account pipeline, Postiz is arguably overkill versus a small Python publisher — choose it if you want a calendar UI on day 1</td></tr>
+          </tbody>
+        </table></div>
+        <p class="layer-note" style="margin-top:12px"><b>Never</b> use browser-automation / cookie-based “unofficial” Instagram or YouTube uploaders for a business channel — they violate platform terms, break constantly, and risk the account. Official APIs only.</p>
+        <p class="src">Sources: <a href="https://postproxy.dev/blog/post-to-instagram-via-api/">postproxy.dev — post to Instagram via API</a> · <a href="https://www.postzen.dev/blog/instagram-api-integration-guide">postzen.dev — Instagram API integration guide</a> · <a href="https://invisibleapi.ai/blog/post-to-instagram-api/">invisibleapi.ai — Instagram API</a> · <a href="https://outlierkit.com/resources/youtube-api-quota/">outlierkit.com — YouTube API quota</a> · <a href="https://qpost.dev/guides/youtube-api-uploads-private/">qpost.dev — YouTube uploads private</a> · <a href="https://postproxy.dev/blog/youtube-upload-api-guide/">postproxy.dev — YouTube upload API guide</a> · <a href="https://www.codewords.ai/blog/automatic-youtube-uploader">codewords.ai — automatic YouTube uploader</a> · <a href="https://explainx.ai/blog/postiz-open-source-agentic-social-media-scheduler-mcp-cli-self-host-agpl-guide-2026">explainx.ai — Postiz guide 2026</a> · <a href="https://www.sociahive.com/blog/open-source-social-media-tools">sociahive.com — open-source social media tools</a> · <a href="https://nubiapage.com/postiz-review-2026-login-free-plan-founder-alternatives-pricing-app-and-faqs">nubiapage.com — Postiz review 2026</a></p>
+
+        <h3 class="layer-title">(i) Analytics / monitoring</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Option</th><th>Licence / free tier</th><th>Use</th></tr></thead>
+          <tbody>
+            <tr class="pick"><td data-label="Option"><span class="name">Umami <span class="star">★</span></span><span class="sub">Web analytics</span></td>
+              <td data-label="Licence / tier"><b>MIT, self-host free/unlimited</b>; Cloud free hobby tier reported at ~100k events/mo, 3 sites, 6-month retention (third-party figures vary — verify)</td>
+              <td data-label="Use">Job app + SaaS marketing site. Cookieless, tiny script</td></tr>
+            <tr><td data-label="Option"><span class="name">Plausible CE</span></td>
+              <td data-label="Licence / tier"><b>AGPLv3, self-host free</b>; <b>Cloud has NO free tier</b> (30-day trial, then from $9/mo)</td>
+              <td data-label="Use">Simpler dashboards than Umami; the Community Edition lacks some cloud features (funnels, SSO etc.)</td></tr>
+            <tr class="pick"><td data-label="Option"><span class="name">PostHog <span class="star">★</span></span><span class="sub">Product analytics (System 2)</span></td>
+              <td data-label="Licence / tier"><b>MIT core, self-hostable</b>; Cloud free: <b>1M events/mo + 5k session recordings/mo, 1-year retention, 1 project</b></td>
+              <td data-label="Use">Funnels, feature flags, session replay for the RAG SaaS. Self-hosting full PostHog is heavy — use Cloud free until it isn’t</td></tr>
+            <tr><td data-label="Option"><span class="name">Grafana + Prometheus</span></td>
+              <td data-label="Licence / tier">Grafana <b>AGPL-3.0</b>, Prometheus Apache-2.0, both self-host free</td>
+              <td data-label="Use">Metrics dashboards on Oracle. Running Grafana unmodified internally is fine — AGPL bites if you offer a <i>modified</i> Grafana as a network service</td></tr>
+            <tr class="pick"><td data-label="Option"><span class="name">Uptime Kuma <span class="star">★</span></span></td>
+              <td data-label="Licence / tier"><b>MIT, self-host free</b></td>
+              <td data-label="Use">Uptime / status page, 90+ alert channels (Telegram/email) — pairs well with Oracle’s idle-reclamation risk</td></tr>
+            <tr><td data-label="Option"><span class="name">Sentry (hosted)</span></td>
+              <td data-label="Licence / tier">Proprietary SaaS (source-available server); Developer free: <b>5k errors/mo, 1 user, 30-day retention, 1 uptime + 1 cron monitor</b> in Aug–Oct 2026 sources</td>
+              <td data-label="Use">The easiest error tracking at $0 for a solo dev</td></tr>
+            <tr class="pick"><td data-label="Option"><span class="name">GlitchTip <span class="star">★</span></span><span class="sub">Open-source Sentry alternative</span></td>
+              <td data-label="Licence / tier"><b>MIT, Sentry-SDK-compatible</b>; hosted free 1k events/mo, <b>self-host unlimited</b></td>
+              <td data-label="Use">Drop-in replacement when Sentry’s 1-user / 5k cap bites</td></tr>
+          </tbody>
+        </table></div>
+        <p class="src">Sources: <a href="https://github.com/Pratiyush/opentier/blob/HEAD/categories/analytics.md">github.com/Pratiyush/opentier — analytics</a> · <a href="https://plausible.alternative.to/">plausible.alternative.to</a> · <a href="https://adminlte.io/blog/devops-monitoring-dashboard-templates/">adminlte.io — monitoring dashboard templates</a> · <a href="https://github.com/ritualdev-lab/devshelf/blob/HEAD/docs/free-cloud.md">github.com/ritualdev-lab/devshelf — free cloud</a></p>
+      </section>
+
+      <!-- ================= SELLING ================= -->
+      <section id="selling">
+        <div class="sec-head"><span class="sec-num">03</span><h2 class="sec-title">Selling digital products at $0 upfront</h2></div>
+        <p class="sec-sub">All of these are percentage-only, with no upfront or monthly fee on the entry path (except optional Ko-fi Gold / Polar paid tiers). None is open source — they are payment infrastructure, so the $0 question is fees plus merchant-of-record status (MoR = they collect and remit sales tax/VAT for you).</p>
+
+        <div class="chart-box">
+          <h3>What you actually keep on a $20 sale</h3>
+          <p class="cap">Total platform + card-processing cost per direct $20 sale, computed from the published rates in the table below. Lower is better.</p>
+          <svg viewBox="0 0 720 284" role="img" aria-label="Bar chart of total fees on a 20 dollar sale: Razorpay India domestic 0.47 dollars, Lemon Squeezy 1.50, Polar Starter 1.50, itch.io at 0 percent revenue share 0.88, itch.io at default 10 percent share 2.88, Gumroad 3.38.">
+            <!-- axis -->
+            <line class="axis" x1="170" y1="8" x2="170" y2="238" stroke-width="1"/>
+            <!-- Gumroad -->
+            <text class="lbl" x="162" y="26" text-anchor="end">Gumroad</text>
+            <rect x="170" y="12" width="446" height="20" fill="var(--chart-4)"/>
+            <text class="val" x="622" y="26">$3.38 · 16.9%</text>
+            <!-- itch.io default -->
+            <text class="lbl" x="162" y="62" text-anchor="end">itch.io (10% share)</text>
+            <rect x="170" y="48" width="380" height="20" fill="var(--chart-3)"/>
+            <text class="val" x="556" y="62">$2.88 · 14.4%</text>
+            <!-- Lemon Squeezy -->
+            <text class="lbl" x="162" y="98" text-anchor="end">Lemon Squeezy</text>
+            <rect x="170" y="84" width="198" height="20" fill="var(--chart-1)"/>
+            <text class="val" x="374" y="98">$1.50 · 7.5%</text>
+            <!-- Polar -->
+            <text class="lbl" x="162" y="134" text-anchor="end">Polar (Starter)</text>
+            <rect x="170" y="120" width="198" height="20" fill="var(--chart-1)"/>
+            <text class="val" x="374" y="134">$1.50 · 7.5%</text>
+            <!-- itch.io 0% -->
+            <text class="lbl" x="162" y="170" text-anchor="end">itch.io (0% share)</text>
+            <rect x="170" y="156" width="116" height="20" fill="var(--chart-2)"/>
+            <text class="val" x="292" y="170">$0.88 · 4.4%</text>
+            <!-- Razorpay -->
+            <text class="lbl" x="162" y="206" text-anchor="end">Razorpay (India)</text>
+            <rect x="170" y="192" width="62" height="20" fill="var(--chart-2)"/>
+            <text class="val" x="238" y="206">$0.47 · 2.36%</text>
+            <text class="val" x="170" y="254">Razorpay: 2% + 18% GST on the fee, domestic only.</text>
+            <text class="val" x="170" y="270">itch.io at 0% share = processing fees only.</text>
+          </svg>
+        </div>
+
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Platform</th><th>You actually pay per direct sale</th><th>Upfront</th><th>Notes for an India-based solo seller</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Platform"><span class="name">Gumroad</span></td>
+              <td data-label="You pay"><b>10% + $0.50 platform PLUS 2.9% + $0.30 card processing on top</b> (the pricing page shows only the first part — read the fees article); <b>30% via Discover</b> (processing included); drops to 5% + $0.50 after $20k of sales in a month</td>
+              <td data-label="Upfront">$0, no monthly fee. One Nov 2026 report notes code merged to <i>test</i> a $5–10/mo fee for some new sellers — switched off and not on the pricing page; re-check at signup</td>
+              <td data-label="Notes">Merchant-of-record since 1 Jan 2025 (handles tax). Easiest start, most expensive at scale. Verify the current India payout method and fees in your account before relying on it — not verified in this research</td></tr>
+            <tr class="pick"><td data-label="Platform"><span class="name">Lemon Squeezy <span class="star">★</span></span></td>
+              <td data-label="You pay"><b>5% + $0.50, processing included</b>; +1.5% international, +1.5% PayPal, +0.5% subscriptions</td>
+              <td data-label="Upfront">$0</td>
+              <td data-label="Notes">Merchant-of-record; licences and subscriptions for software. <b>Owned by Stripe; the product is being transitioned toward Stripe Managed Payments</b> — good today, expect a migration</td></tr>
+            <tr class="pick"><td data-label="Platform"><span class="name">Polar <span class="star">★</span></span><span class="sub">For developers</span></td>
+              <td data-label="You pay"><b>Starter (free): 5% + $0.50.</b> The older “4% + $0.40” is an Early-Member rate for orgs created before 27 May 2026 — new sellers should budget 5% + $0.50. Paid tiers ($20–$400/mo) lower it to 3.4% + $0.30. +1.5% on non-US cards</td>
+              <td data-label="Upfront">$0 on Starter</td>
+              <td data-label="Notes">Merchant-of-record, built for software/SaaS, with GitHub / licence-key delivery. An open-source-<i>adjacent</i> project, but hosted Polar is a fee-charging service, not self-hosted OSS for payments</td></tr>
+            <tr><td data-label="Platform"><span class="name">Ko-fi</span></td>
+              <td data-label="You pay"><b>Shop / memberships / commissions: 5% service fee on the free plan + processor fees</b> (you connect your own Stripe/PayPal — Ko-fi never holds money). Tips: 0% only if the default “Contributor” 5% is turned off, or on Gold. <b>Gold is $12/mo = 0% service fee</b> (some older guides say $6 — the official pricing page checked in search says $12)</td>
+              <td data-label="Upfront">$0</td>
+              <td data-label="Notes"><b>Not a merchant-of-record — tax/VAT is your problem.</b> Payout depends entirely on your Stripe/PayPal eligibility in India — verify before choosing it as your primary store</td></tr>
+            <tr><td data-label="Platform"><span class="name">itch.io</span> <span class="star">★</span><span class="sub">For games / templates</span></td>
+              <td data-label="You pay"><b>You set the share: 0–100%, default 10%</b>, plus processor ~2.9% + $0.30</td>
+              <td data-label="Upfront">$0, no listing fees</td>
+              <td data-label="Notes">Setting the share to 0% is allowed — then you pay only processing. Best for games and jam products; weak discovery unless you bring your own traffic</td></tr>
+            <tr class="pick"><td data-label="Platform"><span class="name">Razorpay (India / UPI) <span class="star">★</span></span><span class="sub">India domestic</span></td>
+              <td data-label="You pay"><b>2% + 18% GST on the fee (= 2.36% effective)</b> per successful domestic transaction — cards, UPI, netbanking, wallets. ₹0 setup, ₹0 AMC. International / Amex ~3% + GST</td>
+              <td data-label="Upfront">₹0 (note a possible <b>₹199 KYC processing fee</b> mentioned in Razorpay’s own 2026 pricing explainer for eligible new-merchant offers)</td>
+              <td data-label="Notes"><b>“Zero-MDR UPI” does NOT mean free UPI for you:</b> bank MDR on standard UPI is 0, but Razorpay’s 2% is its platform fee. New-merchant promo in sources: 0% platform fee for 90 days or ₹5 lakh volume (whichever comes first, for accounts activated on/after 1 Jul 2026; GST still applies). Use Payment Links/Pages — no website needed. Requires KYC/business documentation; you (not Razorpay) handle GST, invoicing and tax on your sales</td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout">
+          <p><b>India strategy:</b> domestic buyers → Razorpay (2.36% effective, UPI-native, ₹ settlement). Global buyers for a digital product, template or SaaS → Polar or Lemon Squeezy (the merchant-of-record handles EU VAT / US sales tax you would otherwise have to register for). Gumroad only if its Discover audience is worth 13%+ all-in.</p>
+        </div>
+        <p class="src">Sources: <a href="https://www.grigora.co/blog/gumroad-for-selling-digital-products/">grigora.co — Gumroad for selling digital products</a> · <a href="https://aliteq.com/cheapest-merchant-of-record">aliteq.com — cheapest merchant of record</a> · <a href="https://KO-fi.com/pricing">ko-fi.com/pricing</a> · <a href="https://usageatlas.com/guides/other/itch-io-fees-explained">usageatlas.com — itch.io fees explained</a> · <a href="https://razorpay.com/blog/razorpay-payment-gateway-pricing-explained/">razorpay.com — payment gateway pricing explained</a> · <a href="https://razorpay.com/blog/low-cost-payment-gateway-in-india-the-complete-decision-guide/">razorpay.com — low-cost payment gateway guide, India</a></p>
+      </section>
+
+      <!-- ================= YOUTUBE ================= -->
+      <section id="youtube">
+        <div class="sec-head"><span class="sec-num">04</span><h2 class="sec-title">YouTube policy: what an “automated channel” gets wrong</h2></div>
+        <p class="sec-sub">Primary source, read live on 3 Nov 2026: YouTube Help — <a href="https://support.google.com/youtube/answer/1311392">Channel monetization policies</a>, and the <a href="https://support.google.com/youtube/answer/14328491?nohelpkit=1&hl=en-IN#examples_as">GenAI disclosure page</a>. This is the one section of the research verified against the official page directly.</p>
+
+        <div class="callout">
+          <p><b>The rules, closely paraphrased from the official wording.</b> The YouTube Partner Program requires content to be <b>your original creation</b>; borrowed content must be <b>changed significantly</b>; and content must <b>not be mass-produced, generic, repetitive or manipulative</b> — it must be made for viewers’ enjoyment or education, not solely for views. Reviewers judge the <b>channel as a whole</b>: main theme, most-viewed videos, newest videos, biggest watch-time videos, titles/thumbnails/descriptions, and the About section.</p>
+          <p><b>Reused content</b> = repurposing content already on YouTube or another online source <b>without significant original commentary, substantive modifications, or educational/entertainment value</b>. This applies <b>even if you have permission from the original creator</b> — it is separate from copyright, permission and fair use, so zero copyright claims does <i>not</i> mean you pass.</p>
+          <p><b>Inauthentic content</b> (renamed from “repetitious content” on <b>15 Jul 2025</b> — a clarification, not a new ban, and no change to the reused-content policy) covers generic, repetitive, template content, now explicitly including the examples below.</p>
+          <p><b>Consequence:</b> if videos violate the policy, or reviewers “cannot clearly tell you made the content,” <b>monetisation may be removed from the entire channel</b>, not just one video.</p>
+        </div>
+
+        <h3 class="layer-title">Official examples of what is NOT allowed to monetise</h3>
+        <ol class="steps">
+          <li><b>AI-generated content made with generic/unoriginal templates</b> giving the impression of mass production, without the creator’s original, authentic insights or perspective.</li>
+          <li><b>Image slideshows, templated storylines, or scrolling text</b> with minimal or no narrative, commentary or educational value — the classic “stock photos + TTS reading a script” video.</li>
+          <li><b>Content that exclusively features readings of other materials you did not create</b> (text from websites or news feeds read aloud by TTS).</li>
+          <li>Clips/compilations edited together with <b>little or no narrative</b>; short videos compiled from other social sites; content uploaded many times by other creators; promotion of others’ content (even with permission); content copied from another source without substantive modifications.</li>
+          <li>Similar/repetitive videos with <b>low educational value, commentary or narrative, or minimal variation</b> — the same characters, situation and outcome templated across videos.</li>
+          <li>Songs only pitch/speed-shifted; collections of songs (even with permission); mostly non-verbal reactions without voice commentary.</li>
+          <li><b>AI personas presented as experts on sensitive topics</b> — an AI “doctor” giving medical advice, AI podcast hosts giving financial/investment advice, AI personas giving legal advice: <b>not monetisable at all</b>.</li>
+          <li>Unsatisfying/off-putting formulas: stitching unrelated AI clips for shock value, deceptive realistic imagery (fake celebrity death or disaster), repetitive distress/manipulative templates.</li>
+          <li>Separately from monetisation: fake engagement and artificial inflation are banned, and the Community Guidelines and copyright rules apply in full.</li>
+        </ol>
+
+        <h3 class="layer-title">What IS allowed</h3>
+        <p class="layer-note">Critical-review clips; reaction videos <i>with your commentary</i>; edited footage with a storyline plus commentary; a scene with rewritten dialogue or a changed voiceover; sports replays where you explain the moves; content primarily featuring the creator; reused material where the creator is visible or <b>explains how they added to it</b>; edits with substantive audio/visual effects unique to the channel. A series format with the same intro/outro is fine <b>provided each video’s substance is materially varied</b>, with a distinct storyline, focus or concept. Using AI tools is <i>not</i> disqualifying — the reused-content FAQ says AI-using channels can still monetise if the content is clearly original.</p>
+
+        <h3 class="layer-title">GenAI disclosure — separate from monetisation</h3>
+        <p class="layer-note">You <b>must disclose</b> when AI meaningfully creates or alters <b>photorealistic</b> content: a real person appearing to say or do something they didn’t, altered footage of a real event or place, a generated realistic scene that didn’t occur, or AI music that is the main focus — via Studio → Attributes → “AI use: Yes” at upload. <b>Disclosing alone will NOT limit your audience or monetisation eligibility.</b> No disclosure is needed for AI help with an outline, script, thumbnail or title, captions, colour/lighting, filters, or cloning <i>your own</i> voice. Repeated failure to disclose realistic AI can lead to YouTube applying labels itself, content removal, or Partner Program suspension.</p>
+
+        <h3 class="layer-title">A compliant faceless-channel workflow on the $0 stack</h3>
+        <ol class="steps">
+          <li><b>Original research and script per video</b> — your own angle, structure, examples and opinions, from primary sources; never a paraphrase or read-aloud of one article or another video. Keep your research notes and script drafts — they are evidence you made it, if the channel is reviewed.</li>
+          <li><b>Original narration</b> — a Kokoro voiceover of <i>that</i> script. An AI voice is fine; the script’s originality is what is judged. Vary structure, pacing, examples and visuals per episode — no identical template with the nouns swapped.</li>
+          <li><b>Original visuals, not a slideshow</b> — your own HyperFrames/Manim animations, charts drawn from your data, screen recordings of your own demos and code, and licensed stock <i>as supporting B-roll under your commentary</i>, with substantive editing (callouts, zooms, diagrams, chapter structure) that is visibly unique to the channel.</li>
+          <li><b>A human editorial pass before publish</b> — a person checks facts, adds a personal insight or example, and rewrites the title/thumbnail (your own FLUX / Penpot / HTML design, not a copied thumbnail). Automation prepares; it does not publish unreviewed at scale.</li>
+          <li><b>A sane cadence</b> — e.g. 2–3 long-form videos per week that you can actually make distinct, plus Reels/Shorts cut <i>from your own long-form</i> (not compilations of others’ clips).</li>
+          <li><b>Disclose correctly</b> — tick AI use = Yes if any photorealistic AI scene, person, or music-as-focus appears; otherwise script/TTS/animation assistance alone does not require it. When in doubt and it’s realistic, disclose — disclosure costs nothing.</li>
+          <li><b>Avoid the hard bans</b> — no AI-expert personas giving health/finance/law advice, no re-uploads or compilations, no TTS readings of web text, no mass-producing 10 templated videos a day. Build the channel’s About page and a consistent original format so a reviewer can clearly tell you made the content.</li>
+        </ol>
+        <p class="src">Secondary explainers (consistent with the official page): <a href="https://www.lilachbullock.com/youtube-reused-content-policy/">lilachbullock.com — YouTube reused content policy</a> · <a href="https://www.usekineo.com/can-you-monetize-ai-videos">usekineo.com — can you monetize AI videos</a></p>
+      </section>
+
+      <!-- ================= VIDEO TOOLS ================= -->
+      <section id="video-tools">
+        <div class="sec-head"><span class="sec-num">05</span><h2 class="sec-title">Open-source video tools, audited</h2></div>
+        <p class="sec-sub">Follow-up audit (4 Nov 2026) of the ten AI video tools from the viral lists, checked against GitHub — repo status, licence, and whether they run on modest CPU-only hardware. Primary audit: <a href="https://agentgid.com/guides/ai-video-editing-10-open-source-repos-checked/">AgentGid’s independent check of all ten repos</a>, cross-checked against each repo/README. Classifications use the same A–E scale as the legend above.</p>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Tool</th><th>What it does</th><th>Licence</th><th>Status (late 2026)</th><th>CPU-only?</th><th>Class</th></tr></thead>
+          <tbody>
+            <tr><td data-label="Tool"><span class="name">OpenChatCut</span><span class="sub"><a href="https://github.com/0xsline/OpenChatCut">github.com/0xsline/OpenChatCut</a></span></td>
+              <td data-label="What">Local-first conversational AI editor, multitrack timeline, agents + MCP, Remotion rendering</td>
+              <td data-label="Licence"><b>AGPL-3.0</b></td>
+              <td data-label="Status">Active — v0.2.17, 15 Oct 2026; created Jul 2026</td>
+              <td data-label="CPU-only?">Yes — desktop app; rendering is CPU work. AI features are bring-your-own-key (plug in free-tier LLMs)</td>
+              <td data-label="Class"><span class="badge b-a">A</span> <span class="sub">AGPL: modify it and offer it over a network, and you must publish your changes. A paid “Pro” edition exists beside the OSS one. It inherits Remotion’s licence for rendering.</span></td></tr>
+            <tr><td data-label="Tool"><span class="name">FireRed-OpenStoryline</span><span class="sub"><a href="https://github.com/FireRedTeam/FireRed-OpenStoryline">github.com/FireRedTeam/FireRed-OpenStoryline</a></span></td>
+              <td data-label="What">Natural-language editing agent; plans cuts, searches media, picks voice/BGM/fonts; reusable “Skills”</td>
+              <td data-label="Licence"><b>Apache-2.0</b></td>
+              <td data-label="Status">Commits continue (last 31 Jul 2026) but <b>no release has ever been published</b> — pin a commit</td>
+              <td data-label="CPU-only?">Mostly — MoviePy/FFmpeg rendering is CPU; needs an LLM API key (use free tiers)</td>
+              <td data-label="Class"><span class="badge b-a">A</span>/<span class="badge b-d">D</span> <span class="sub">AI transitions use third-party AIGC services the README calls relatively high-cost — skip them. The default asset library is basic.</span></td></tr>
+            <tr><td data-label="Tool"><span class="name">AutoClip</span><span class="sub"><a href="https://github.com/zhouxiaoka/autoclip">github.com/zhouxiaoka/autoclip</a></span></td>
+              <td data-label="What">Long podcasts/interviews → subtitled short clips with covers and post copy</td>
+              <td data-label="Licence"><b>MIT</b></td>
+              <td data-label="Status">Active — v1.5.6, 9 Oct 2026</td>
+              <td data-label="CPU-only?">Compute yes, <b>but no bundled local model</b>: every run calls a cloud LLM (DashScope by default) — point it at Groq/Gemini free tiers or budget the calls</td>
+              <td data-label="Class"><span class="badge b-a">A</span> <span class="sub">(code) with a C-class dependency. Several unrelated repos share the “AutoClip” name; this is the 9k-star one from the viral list.</span></td></tr>
+            <tr><td data-label="Tool"><span class="name">Herk Edit Kit</span><span class="sub"><a href="https://github.com/nateherkai/herk-edit-kit">github.com/nateherkai/herk-edit-kit</a></span></td>
+              <td data-label="What">15 agent skills for Claude Code/Codex: transcript cuts, captions, B-roll, motion graphics on HyperFrames + GSAP</td>
+              <td data-label="Licence"><b>Unclear — verify</b></td>
+              <td data-label="Status">Active; no releases published</td>
+              <td data-label="CPU-only?">Yes — Node 22+, FFmpeg, Chrome/Chromium</td>
+              <td data-label="Class"><span class="badge b-a">A</span>/<span class="badge b-d">D</span> <span class="sub">GitHub reports the licence as “Other (NOASSERTION)” while AgentGid reports its LICENSE file is MIT — <b>read the LICENSE file in-repo before any commercial reliance</b>. Default transcription is ElevenLabs (paid) — substitute local Whisper; Kie.ai generation needs credits. GSAP is free but under its own custom licence.</span></td></tr>
+            <tr><td data-label="Tool"><span class="name">AutoSubs</span><span class="sub"><a href="https://github.com/tmoroney/auto-subs">github.com/tmoroney/auto-subs</a></span></td>
+              <td data-label="What">Local AI subtitles into DaVinci Resolve / Premiere / After Effects; Whisper-family models, diarization, translation</td>
+              <td data-label="Licence"><b>MIT</b></td>
+              <td data-label="Status">Active — v3.11.0, 29 Sep 2026</td>
+              <td data-label="CPU-only?"><b>Yes — explicitly runs with no GPU</b>, fully local, no subscription</td>
+              <td data-label="Class"><span class="badge b-a">A</span> <span class="sub">The <i>optional</i> MMS forced-alignment weights are <b>CC BY-NC 4.0 (non-commercial)</b> — do not use that model in monetised videos; the default models are fine.</span></td></tr>
+            <tr><td data-label="Tool"><span class="name">StoryToolkitAI</span><span class="sub"><a href="https://github.com/octimot/StoryToolkitAI">github.com/octimot/StoryToolkitAI</a></span></td>
+              <td data-label="What">Transcribe, index and search footage by meaning; story assembly for Resolve</td>
+              <td data-label="Licence"><b>GPL-3.0</b></td>
+              <td data-label="Status"><b>Slowing</b> — last release v0.25.1, <b>20 Feb 2025</b>; commits continue</td>
+              <td data-label="CPU-only?"><b>No on Windows</b> — the standalone requires a CUDA GPU; macOS runs on 8 GB RAM</td>
+              <td data-label="Class"><span class="badge b-d">D</span> <span class="sub">Resolve integration requires the <b>paid DaVinci Resolve Studio</b> — for this user it is effectively E for its headline workflow.</span></td></tr>
+            <tr class="pick"><td data-label="Tool"><span class="name">FunClip <span class="star">★</span></span><span class="sub"><a href="https://github.com/modelscope/FunClip">github.com/modelscope/FunClip</a></span></td>
+              <td data-label="What">Transcribe (FunASR), pick lines/speakers from the transcript, cut clips with subtitles; local Gradio UI</td>
+              <td data-label="Licence"><b>MIT</b> (FunASR weights Apache-2.0)</td>
+              <td data-label="Status">Active — v2.2.1, 1 Sep 2026</td>
+              <td data-label="CPU-only?"><b>Yes</b> — FunASR officially supports CPU installs and GGUF CPU builds</td>
+              <td data-label="Class"><span class="badge b-a">A</span> <span class="sub">The safest transcript-clipping pick for CPU-only; strongest for Chinese ASR, English supported.</span></td></tr>
+            <tr><td data-label="Tool"><span class="name">NarratoAI</span><span class="sub"><a href="https://github.com/linyqh/NarratoAI">github.com/linyqh/NarratoAI</a></span></td>
+              <td data-label="What">One-click narration videos: LLM script, TTS voiceover, subtitles, MoviePy edit</td>
+              <td data-label="Licence"><b>MIT</b></td>
+              <td data-label="Status">Active — v0.8.7, 17 Jul 2026</td>
+              <td data-label="CPU-only?"><b>Yes, by its own README</b> — min 4-core CPU / 8 GB RAM, “GPU is not required”</td>
+              <td data-label="Class"><span class="badge b-a">A</span> <span class="sub">(code) with a C/D dependency — non-functional without LLM/TTS API keys; plug in Gemini/Groq free tiers and Kokoro locally instead of the SiliconFlow promo-credit path its README pushes. Its core use case (narrating <i>others’</i> footage) is precisely YouTube’s reused-content risk zone — use it only on your own/original material.</span></td></tr>
+            <tr><td data-label="Tool"><span class="name">BackgroundRemover</span><span class="sub"><a href="https://github.com/nadermx/backgroundremover">github.com/nadermx/backgroundremover</a></span></td>
+              <td data-label="What">CLI background removal for images and video (U2Net via PyTorch)</td>
+              <td data-label="Licence"><b>MIT</b></td>
+              <td data-label="Status">Active — v0.4.5, 10 Jul 2026</td>
+              <td data-label="CPU-only?">Technically yes — automatic CPU fallback, but <b>a GPU is 5–10× faster</b>; video on CPU is painfully slow</td>
+              <td data-label="Class"><span class="badge b-a">A</span>/<span class="badge b-d">D</span> <span class="sub">Fine for images and short clips on CPU; plan video jobs for Kaggle free-GPU bursts.</span></td></tr>
+            <tr><td data-label="Tool"><span class="name">LatentSync</span><span class="sub"><a href="https://github.com/bytedance/LatentSync">github.com/bytedance/LatentSync</a></span></td>
+              <td data-label="What">Diffusion lip-sync of video to new audio</td>
+              <td data-label="Licence">Code <b>Apache-2.0</b>; <b>weights OpenRAIL++-M (use-restricted, not plain open source)</b></td>
+              <td data-label="Status"><b>Quiet — last commit 20 Jun 2025 (&gt;16 months)</b>; no releases</td>
+              <td data-label="CPU-only?"><b>NO — GPU-mandatory</b>: 8 GB VRAM (v1.5) / 18 GB (v1.6); independent verification ran it on a 24 GB RTX 3090, with CPU listed as unavailable</td>
+              <td data-label="Class"><span class="badge b-e">E</span> <span class="sub">For a CPU-only solo dev (or D via Kaggle bursts, accepting the restricted weights licence). Flagged: GPU-mandatory + restricted weights + stale.</span></td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout">
+          <p><b>Bottom line for System 1:</b> nothing in this list displaces the main pipeline — <b>FFmpeg + HyperFrames + Kokoro + whisper.cpp-class transcription</b>, all class A. The genuinely additive picks are <b>FunClip (A)</b> for transcript-driven clipping of your <i>own</i> long-form into Shorts/Reels, <b>AutoSubs (A)</b> if you edit in Resolve/Premiere (avoid the non-commercial alignment model), and <b>FireRed-OpenStoryline / OpenChatCut (A)</b> as optional agent-editing front-ends. <b>Avoid as foundations:</b> LatentSync (GPU + restricted weights + stale), StoryToolkitAI (stale releases, CUDA / paid-Studio gravity), and any workflow built on clipping or narrating third-party footage — a YouTube reused-content violation regardless of tooling.</p>
+          <p><b>Established tools, re-checked:</b> Blender (GPLv2+, explicitly free for commercial use; Cycles renders on CPU, slower but supported), OBS Studio (GPLv2; CPU x264 screen recording — the right way to capture the original screen recordings the compliant workflow needs), Manim Community (MIT, CPU-rendered). ComfyUI is GPL-3.0 but practically GPU-bound for generation on this hardware.</p>
+        </div>
+      </section>
+
+      <!-- ================= TRAPS ================= -->
+      <section id="traps">
+        <div class="sec-head"><span class="sec-num">06</span><h2 class="sec-title">Flags: not actually free, not actually open source</h2></div>
+        <p class="sec-sub">Sixteen claims you will meet in blog posts and marketing pages that do not survive a licence or pricing-page check. This is the section to re-read before adopting anything new.</p>
+        <div class="flags">
+          <div class="flag"><div class="fh">1 · Remotion</div><div class="fb">Source-available, not open source. Free only for teams of ≤3 people; a $100/mo minimum Automators plan applies at 4+.</div></div>
+          <div class="flag"><div class="fh">2 · n8n</div><div class="fb">Fair-code / Sustainable Use, not open source. Free only for your own internal use; tenant-facing or embedded use is paid.</div></div>
+          <div class="flag"><div class="fh">3 · Vercel Hobby</div><div class="fb">Non-commercial only. Ads or payments breach the terms — the fix is Pro at $20/seat/mo, or moving to Cloudflare.</div></div>
+          <div class="flag"><div class="fh">4 · Railway / Fly.io</div><div class="fb">No real free tier — a trial credit and trial hours, respectively. Anything always-on exhausts them.</div></div>
+          <div class="flag"><div class="fh">5 · Render Free Postgres</div><div class="fb">Expires after 30 days, and the free web service sleeps after 15 minutes idle. Demo infrastructure, not production.</div></div>
+          <div class="flag"><div class="fh">6 · XTTS-v2 &amp; F5-TTS weights · edge-tts</div><div class="fb">XTTS and F5 weights are non-commercial. edge-tts is an unofficial cloud client, not a local/open-source service, and carries a Microsoft terms risk.</div></div>
+          <div class="flag"><div class="fh">7 · FLUX.1 / FLUX.2 dev</div><div class="fb">Non-commercial licence. Only schnell and klein-4B are Apache-2.0 and safe for products.</div></div>
+          <div class="flag"><div class="fh">8 · “Open source” that isn’t</div><div class="fb">Llama models are open-<i>weight</i> under a custom licence, not OSI open source. Phoenix (eval) is Elastic Licence. Postiz Cloud, Plausible Cloud and Trigger.dev Cloud have no free hosted tier despite “open-source/free” headlines — free means self-host.</div></div>
+          <div class="flag"><div class="fh">9 · Hugging Face Inference · GitHub Models</div><div class="fb">HF’s free inference credit is $0.10/mo or reportedly zero now — not a usable free API. GitHub Models was retired in Jul 2026.</div></div>
+          <div class="flag"><div class="fh">10 · Gemini Free / OpenRouter Free</div><div class="fb">Free in price, paid in data and conditions: Gemini free content may be used to improve Google’s products; OpenRouter’s useful 1,000 RPD requires a $10 purchase, and free-model prompts may be logged upstream.</div></div>
+          <div class="flag"><div class="fh">11 · Gumroad’s “10%”</div><div class="fb">Actually 10% + $0.50 <i>plus</i> 2.9% + $0.30 processing — ≈13%+ on small tickets — and 30% on Discover sales.</div></div>
+          <div class="flag"><div class="fh">12 · “Zero-MDR UPI = free payments in India”</div><div class="fb">False via any gateway: Razorpay still charges its 2% + GST platform fee on UPI transactions.</div></div>
+          <div class="flag"><div class="fh">13 · Oracle “4 CPU / 24 GB free forever” guides</div><div class="fb">Outdated since 15 Jun 2026 — it is now 2 OCPU / 12 GB, plus card verification, capacity shortages and idle reclamation.</div></div>
+          <div class="flag"><div class="fh">14 · YouTube “1,600 units / 6 uploads a day” guides</div><div class="fb">May be outdated after the Dec 2025 / Jun 2026 dedicated-bucket change (~100 uploads/day in current method docs). Verify in your own console.</div></div>
+          <div class="flag"><div class="fh">15 · Piper “MIT”</div><div class="fb">Outdated for the current GPL engine, and each voice carries its own licence — check the voice you plan to use.</div></div>
+          <div class="flag"><div class="fh">16 · Canva / Pinecone / PostHog Cloud / Sentry</div><div class="fb">Useful free tiers, but proprietary. They belong in a stack only where the self-hosted or open-source path is named alongside them.</div></div>
+        </div>
+
+        <div class="callout">
+          <p><b>Two directories checked, neither changes the stack.</b> <a href="https://github.com/ripienaar/free-for-dev">free-for-dev</a> (141,750 stars) <i>confirms</i> the core picks — Cloudflare, Oracle, Supabase, Gemini — and adds two useful supplements: <b>Tavily</b> (1,000 requests/mo, no card — class C) for research/web grounding, and <b>Kaggle Notebooks</b> (30 GPU hrs/week, P100 or 2×T4; no card, phone verification instead — class D) as the free burst-GPU escape hatch. Note its own rules: it lists only as-a-Service offerings, <i>not</i> self-hosted software, so it can never replace the self-hosted half of this stack. <a href="https://tabworthy.pages.dev">Tabworthy</a> is a general-interest discovery directory (514 sites, mostly games and curiosities) — a serendipity feed, not a dev-stack source. And <a href="https://theaileverage.com/">theaileverage.com</a> is not a tools directory at all: it is a consultancy selling a $149 course and a $499 cohort (class E); its free newsletter “kits” headline a free tool but require paid dependencies in the working setup — audit any kit for hidden paid dependencies before adopting it.</p>
+          <p><b>API-engineering tools (class A, with a hard boundary).</b> <a href="https://github.com/kalil0321/reverse-api-engineer">reverse-api-engineer</a> (MIT) captures a site’s network traffic to a HAR file and generates a typed API client; <a href="https://github.com/morluto/rea">REA</a> (MIT per Oct 2026 coverage) packages reverse-engineering tools for coding agents. Legitimate use here: point them at <b>your own browsing of public, unauthenticated, employer-published endpoints</b> (public ATS job-board APIs like Ashby/Greenhouse/Lever) to generate a client instead of hand-writing one. Never use them to bypass authentication, paywalls or access controls, replay session tokens, or decompile software whose licence forbids it. REA’s star counts in Oct 2026 coverage conflict wildly (~96k to ~278k within weeks) — treat popularity claims as unverified; its own SECURITY.md warns it “is not a sandbox,” and fake “REA zip downloads” have appeared — only use github.com/morluto/rea, rea.tools, or the npm package <span class="mono">rea-agents</span>.</p>
+        </div>
+      </section>
+
+      <!-- ================= OPEN QUESTIONS ================= -->
+      <section id="open">
+        <div class="sec-head"><span class="sec-num">07</span><h2 class="sec-title">Could not verify — open questions</h2></div>
+        <p class="sec-sub">Stated plainly, because a $0 architecture built on an unverified quota fails at the worst moment. No hands-on signups, rendering, or API calls were performed in this research; all limits are from published sources as dated, not live account verification — except YouTube’s official monetisation page, which was read live.</p>
+        <ul class="tight">
+          <li><b>Gemini Free exact RPM/RPD:</b> Google no longer publishes them (they are per-project in AI Studio) — any specific number online is unverifiable against a primary source. The free-for-dev listing states Gemini Flash 5 RPM / 20 RPD / 250k TPM and Gemma 30 RPM / 14,400 RPD; treat those figures as indicative and verify in AI Studio.</li>
+          <li><b>YouTube quota regime + the unverified-upload privacy lock:</b> official-adjacent sources directly conflict in Oct–Nov 2026. This must be checked in your own Google Cloud Console and the current <span class="mono">videos.insert</span> reference.</li>
+          <li><b>HF Spaces free-account creation rights and Inference credit ($0.10 vs $0):</b> sources from Sep vs Oct 2026 conflict — the service changed during 2026.</li>
+          <li><b>India payouts:</b> Gumroad and Ko-fi payout eligibility, methods and extra payout fees for an India-resident seller, and Polar / Lemon Squeezy’s India payout details — check in-account at signup; do not assume US/EU payout marketing applies.</li>
+          <li><b>Piper’s licence for the specific voice</b> you plan to use (especially Indic voices), and <b>Meilisearch’s current licence</b> if it is considered for System 3 — check the repo / voice card at build time.</li>
+          <li><b>Herk Edit Kit’s effective licence</b> (GitHub “NOASSERTION” vs a reported MIT LICENSE file) — must be read in-repo before commercial use.</li>
+          <li><b>Card requirements</b> for free-for-dev entries the list doesn’t annotate (CockroachDB, Svix, Ably, Novu, Checkly, Cronitor, Apify, Turso) — check at signup; do not assume “no card.”</li>
+          <li><b>REA’s true adoption/star count</b> — Oct 2026 sources conflict by ~3×; treat all such figures as marketing noise.</li>
+          <li><b>OpenChatCut’s bundled Remotion rendering</b> — whether it keeps a solo user inside Remotion’s free ≤3-person terms in all editions (the OSS edition vs the paid Pro) needs both licences read before shipping a business on it.</li>
+        </ul>
+      </section>
+
+      <footer>
+        <p><b>Key sources</b> (all read 3–4 Nov 2026; every section above also carries its own source links inline):</p>
+        <ul>
+          <li>YouTube official, verified live: <a href="https://support.google.com/youtube/answer/1311392">support.google.com/youtube/answer/1311392</a></li>
+          <li>YouTube GenAI disclosure (index of the official page): <a href="https://support.google.com/youtube/answer/14328491?nohelpkit=1&hl=en-IN#examples_as">support.google.com/youtube/answer/14328491</a></li>
+          <li>Cloudflare Workers AI pricing: <a href="https://developers.cloudflare.com/workers-ai/platform/pricing/">developers.cloudflare.com/workers-ai/platform/pricing</a></li>
+          <li>FFmpeg legal: <a href="https://ffmpeg.org/legal.html">ffmpeg.org/legal</a></li>
+          <li>free-for-dev: <a href="https://github.com/ripienaar/free-for-dev">github.com/ripienaar/free-for-dev</a></li>
+          <li>Video tools audit: <a href="https://agentgid.com/guides/ai-video-editing-10-open-source-repos-checked/">agentgid.com — 10 open-source AI video repos checked</a></li>
+        </ul>
+        <p>Companion deliverables from the same programme: the master roadmap and implementation plan (with full PRD + TRD for the flagship GTM Autopilot OS, the RAG Support Copilot, and JobAutopilot Pro) and the complete GitHub / Vercel / LinkedIn asset audit, delivered as documents in the Founder OS workspace. This page is the free-stack research those documents build on.</p>
+      </footer>
+
+    </div>
+
+    <script>
+      (function () {
+        var btns = document.querySelectorAll('.tab-btn');
+        btns.forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            btns.forEach(function (b) { b.setAttribute('aria-selected', 'false'); });
+            btn.setAttribute('aria-selected', 'true');
+            document.querySelectorAll('.tabpanel').forEach(function (p) { p.classList.remove('active'); });
+            document.getElementById('panel-' + btn.getAttribute('data-tab')).classList.add('active');
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>
