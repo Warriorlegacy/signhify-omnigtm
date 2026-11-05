@@ -46,6 +46,8 @@ Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
 - Custom endpoint: sealed, never echoed, appears in the provider chain, deletable
 - Endpoint probe accepts an OpenRouter-sized (795 KB) model list; capped at 2 MB
 - Landing page on Vercel: HTML/CSS/JS/frames 200, immutable frame caching
+- Hero shows a live dashboard capture (`apps/landing/assets/dashboard.jpg`)
+- No horizontal overflow at 390 / 768 / 1440 px; h1 stays 3 lines
 - CI green (`Typecheck, test, eval, build`), 31 tests
 
 ## Provider chain
@@ -147,5 +149,5 @@ npm run harvest         # ATS harvest (OMNIGTM_LLM=0 for heuristic-only)
 - `packages/mcp-server` — 5 MCP tools (`dispatch_outreach` is confirm-gated)
 - `apps/web-dashboard` — Next.js 15 UI + 15 API routes
 - `apps/viewer-3d` — dependency-free scroll viewer for GitHub Pages
-- `apps/landing` — static Vercel/Netlify landing page with a 120-frame hero
+- `apps/landing` — static Vercel/Netlify landing page; dashboard hero shot + 120-frame backdrop
 - `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md` — design and ops detail
