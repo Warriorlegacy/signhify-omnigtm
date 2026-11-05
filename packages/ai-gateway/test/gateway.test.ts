@@ -136,3 +136,9 @@ test('model discovery surfaces an HTTP error without echoing the token', async (
     globalThis.fetch = original;
   }
 });
+
+test('URL-embedded credentials are rejected instead of echoed back', () => {
+  assert.throws(() => parseBaseUrl('https://user:sk-live@gateway.example.com/v1'), /Bearer token field/);
+  assert.throws(() => parseBaseUrl('https://gateway.example.com/v1?api_key=sk-live'), /Bearer token field/);
+  assert.throws(() => parseBaseUrl('http://169.254.169.254/latest'), /metadata/);
+});

@@ -10,6 +10,14 @@ export class ConfigurationError extends Error {
   }
 }
 
+/** Caller-supplied input was rejected. Routes map this to HTTP 400, not 500. */
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+
 export const isOfflineTest = (): boolean => process.env.OMNIGTM_OFFLINE_TEST === '1';
 
 export function optionalSecret(name: string): string | undefined {

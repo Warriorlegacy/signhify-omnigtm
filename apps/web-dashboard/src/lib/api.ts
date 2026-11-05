@@ -1,6 +1,6 @@
 import { Repo, log } from '@omnigtm/core';
 import { createGateway, type AiGateway } from '@omnigtm/ai-gateway';
-import { ConfigurationError } from '@omnigtm/core';
+import { ConfigurationError, ValidationError } from '@omnigtm/core';
 import { requireSessionApi, UnauthorizedError } from './auth';
 
 let repoPromise: Promise<Repo> | null = null;
@@ -38,6 +38,7 @@ export async function withAuth(fn: () => Promise<Response>): Promise<Response> {
     if (error instanceof UnauthorizedError) {
       return Response.json({ ok: false, error: 'Unauthorized - sign in at /login' }, { status: 401 });
     }
+    if (error instanceof ValidationError) return apiError(error, 400);
     if (error instanceof ConfigurationError) return apiError(error, 500);
     return apiError(error);
   }

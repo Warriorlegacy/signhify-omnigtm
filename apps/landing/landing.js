@@ -11,6 +11,9 @@
   var hero = document.getElementById('hero');
   var total = 120;
   var step = 4;
+  // Start mid-sequence: the first frames of the gradient clip are nearly black,
+  // and the hero needs visible colour before anyone scrolls.
+  var firstSlot = 14;
   var cache = new Map();
   var current = -1;
   var queued = 0;
@@ -60,14 +63,14 @@
       var rect = hero.getBoundingClientRect();
       var span = rect.height - window.innerHeight;
       var progress = span > 0 ? Math.min(1, Math.max(0, -rect.top / span)) : 0;
-      var slot = Math.round(progress * (total - 1));
+      var slot = Math.round(firstSlot + progress * (total - 1 - firstSlot));
       draw(slot);
       preload(slot);
     });
   }
 
-  draw(0);
-  preload(0);
+  draw(firstSlot);
+  preload(firstSlot);
 
   if (!reduced) {
     window.addEventListener('scroll', onScroll, { passive: true });

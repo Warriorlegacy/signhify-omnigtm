@@ -30,7 +30,7 @@ export function EndpointManager({ endpoints }: { endpoints: Endpoint[] }) {
     setLabel('FreeLLMAPI');
     setBaseUrl('http://127.0.0.1:31415/v1');
     setModel('auto');
-    setNotice('Self-hosted FreeLLMAPI preset. Use the unified key from its Keys page (starts with freellmapi-).');
+    setNotice('Self-hosted FreeLLMAPI preset. Use the unified key from its Keys page (starts with freellmapi-). The public deployment blocks loopback targets; run locally or set OMNIGTM_ALLOW_PRIVATE_ENDPOINTS=1 to probe 127.0.0.1.');
   }
 
   async function testConnection() {

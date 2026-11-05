@@ -1,4 +1,5 @@
-import { Repo, isOfflineTest, log, openJson, sealJson } from '@omnigtm/core';
+import { Repo, ValidationError, isOfflineTest, log, openJson, sealJson } from '@omnigtm/core';
+import { lookup } from 'node:dns/promises';
 import { customEndpointToSpec, resolveProviders, type CustomEndpoint, type ProviderSpec } from './providers.js';
 import { AiGateway } from './router.js';
 
@@ -50,9 +51,10 @@ export async function addEndpoint(
   input: { label: string; baseUrl: string; model: string; apiKey?: string; priority?: number; headers?: Record<string, string> }
 ): Promise<StoredEndpoint> {
   const label = input.label.trim();
-  if (!label) throw new Error('label is required');
+  if (!label) throw new ValidationError('label is required');
   const url = parseBaseUrl(input.baseUrl);
-  if (!input.model.trim()) throw new Error('model is required');
+  await assertPublicEndpoint(url);
+  if (!input.model.trim()) throw new ValidationError('model is required');
 
   const endpoints = await loadStoredEndpoints(repo);
   const id = endpointId(label);
@@ -75,22 +77,89 @@ export async function addEndpoint(
 /**
  * Accept what people actually paste. A bare origin becomes `/v1` (every
  * OpenAI-compatible gateway, FreeLLMAPI included, serves that path); an
- * explicit path is left alone. The cloud metadata address is refused because
- * this URL is fetched server-side.
+ * explicit path is left alone. Credentials embedded in the URL are rejected
+ * outright: the key belongs in the Bearer field, where it is sealed, and a URL
+ * is echoed back by listEndpoints.
  */
 export function parseBaseUrl(input: string): string {
   let url: URL;
   try {
     url = new URL(input.trim());
   } catch {
-    throw new Error('baseUrl must be an absolute http(s) URL');
+    throw new ValidationError('baseUrl must be an absolute http(s) URL');
   }
-  if (!/^https?:$/.test(url.protocol)) throw new Error('baseUrl must use http or https');
-  if (url.hostname === '169.254.169.254' || url.hostname === 'metadata.google.internal') {
-    throw new Error('baseUrl points at a cloud metadata endpoint');
+  if (!/^https?:$/.test(url.protocol)) throw new ValidationError('baseUrl must use http or https');
+  if (url.username || url.password) throw new ValidationError('put the key in the Bearer token field, not the URL');
+  for (const key of url.searchParams.keys()) {
+    if (/^(api[_-]?key|key|token|access[_-]?token|auth)$/i.test(key)) {
+      throw new ValidationError('put the key in the Bearer token field, not the URL query');
+    }
+  }
+  const host = url.hostname.replace(/\.$/, '').toLowerCase();
+  if (host === '169.254.169.254' || host === 'metadata.google.internal') {
+    throw new ValidationError('baseUrl points at a cloud metadata endpoint');
   }
   if (url.pathname === '/' || url.pathname === '') url.pathname = '/v1';
   return url.toString().replace(/\/+$/, '');
+}
+
+/** Private ranges, loopback and link-local. */
+function isPrivateAddress(raw: string): boolean {
+  const ip = raw.replace(/^\[|\]$/g, '').toLowerCase();
+  if (ip === '::1' || ip === '::' || ip === '0.0.0.0') return true;
+  if (ip.startsWith('fe80') || ip.startsWith('fc') || ip.startsWith('fd')) return true;
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(ip);
+  const v4 = mapped ? mapped[1] : ip;
+  const parts = v4.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false;
+  return (
+    parts[0] === 10 ||
+    parts[0] === 127 ||
+    parts[0] === 0 ||
+    (parts[0] === 169 && parts[1] === 254) ||
+    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
+    (parts[0] === 192 && parts[1] === 168)
+  );
+}
+
+/**
+ * Block the probe from reaching loopback, link-local and RFC1918 addresses.
+ * Self-hosted FreeLLMAPI on localhost is a legitimate case, so it is an explicit
+ * opt-in rather than a default. Offline tests skip resolution (no network).
+ */
+export async function assertPublicEndpoint(baseUrl: string): Promise<void> {
+  if (process.env.OMNIGTM_ALLOW_PRIVATE_ENDPOINTS === '1' || isOfflineTest()) return;
+  const { hostname } = new URL(baseUrl);
+  const host = hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
+  if (/^(localhost|.*\.localhost|.*\.local|.*\.internal|.*\.nip\.io)$/.test(host)) {
+    throw new ValidationError('baseUrl points at a private host');
+  }
+  if (isPrivateAddress(host)) throw new ValidationError('baseUrl points at a private address');
+  const resolved = await lookup(host).catch(() => null);
+  if (!resolved || isPrivateAddress(resolved.address)) {
+    throw new ValidationError('baseUrl does not resolve to a public address');
+  }
+}
+
+const MAX_BODY_BYTES = 512 * 1024;
+
+async function readCapped(res: Response): Promise<string> {
+  if (Number(res.headers.get('content-length') ?? 0) > MAX_BODY_BYTES) throw new Error('Response too large');
+  const reader = res.body?.getReader();
+  if (!reader) return '';
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_BODY_BYTES) {
+      await reader.cancel();
+      throw new Error('Response too large');
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 export interface ModelDiscovery {
@@ -103,40 +172,45 @@ export interface ModelDiscovery {
 
 /** GET /models so the Settings page can prove a gateway works before saving it. */
 export async function discoverModels(input: { baseUrl: string; apiKey?: string; timeoutMs?: number }): Promise<ModelDiscovery> {
-  const baseUrl = parseBaseUrl(input.baseUrl);
   const started = Date.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? 10_000);
+  let baseUrl = '';
   try {
-    const res = await fetch(`${baseUrl}/models`, {
-      headers: {
-        Accept: 'application/json',
-        ...(input.apiKey?.trim() ? { Authorization: `Bearer ${input.apiKey.trim()}` } : {}),
-      },
-      signal: controller.signal,
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      return { ok: false, baseUrl, models: [], latencyMs: Date.now() - started, error: `HTTP ${res.status}: ${text.slice(0, 160)}` };
-    }
-    let parsed: unknown;
+    baseUrl = parseBaseUrl(input.baseUrl);
+    await assertPublicEndpoint(baseUrl);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), input.timeoutMs ?? 10_000);
     try {
-      parsed = JSON.parse(text);
-    } catch {
-      return { ok: false, baseUrl, models: [], latencyMs: Date.now() - started, error: 'Response was not JSON' };
+      const res = await fetch(`${baseUrl}/models`, {
+        headers: {
+          Accept: 'application/json',
+          ...(input.apiKey?.trim() ? { Authorization: `Bearer ${input.apiKey.trim()}` } : {}),
+        },
+        redirect: 'error',
+        signal: controller.signal,
+      });
+      const text = await readCapped(res);
+      if (!res.ok) {
+        return { ok: false, baseUrl, models: [], latencyMs: Date.now() - started, error: `HTTP ${res.status}: ${text.slice(0, 160)}` };
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        return { ok: false, baseUrl, models: [], latencyMs: Date.now() - started, error: 'Response was not JSON' };
+      }
+      const rows = Array.isArray(parsed) ? parsed : (parsed as { data?: unknown }).data;
+      const models = Array.isArray(rows)
+        ? rows
+            .map((row) => (typeof row === 'string' ? row : (row as { id?: unknown; name?: unknown })?.id ?? (row as { name?: unknown })?.name))
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        : [];
+      return { ok: true, baseUrl, models: models.slice(0, 200), latencyMs: Date.now() - started };
+    } finally {
+      clearTimeout(timer);
     }
-    const rows = Array.isArray(parsed) ? parsed : (parsed as { data?: unknown }).data;
-    const models = Array.isArray(rows)
-      ? rows
-          .map((row) => (typeof row === 'string' ? row : (row as { id?: unknown; name?: unknown })?.id ?? (row as { name?: unknown })?.name))
-          .filter((id): id is string => typeof id === 'string' && id.length > 0)
-      : [];
-    return { ok: true, baseUrl, models: models.slice(0, 200), latencyMs: Date.now() - started };
   } catch (error) {
     const message = error instanceof Error && error.name === 'AbortError' ? 'Timed out after 10s' : error instanceof Error ? error.message : String(error);
     return { ok: false, baseUrl, models: [], latencyMs: Date.now() - started, error: message };
-  } finally {
-    clearTimeout(timer);
   }
 }
 
