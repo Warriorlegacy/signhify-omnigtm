@@ -4,18 +4,14 @@ services:
     name: signhify-omnigtm
     runtime: docker
     plan: free
-    region: singapore
+    region: oregon
     healthCheckPath: /api/v1/health
     autoDeploy: true
-    disk:
-      name: omnigtm-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: OMNIGTM_DB_PATH
-        value: /data/omnigtm.db
+        value: /app/.data/omnigtm.db
       - key: OMNIGTM_MEDIA_DIR
-        value: /data/previews
+        value: /app/.data/previews
       - key: OMNIGTM_ENCRYPTION_KEY
         generateValue: true
       - key: OMNIGTM_DASHBOARD_TOKEN

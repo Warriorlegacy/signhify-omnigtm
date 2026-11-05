@@ -19,6 +19,12 @@ RUN npm ci --include=dev
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
+# Bake the synthetic demo preview into the image. Free instances have no
+# persistent disk, so generating at runtime would mean every restart serves a
+# dead viewer (and generation is far too slow on 0.1 CPU).
+ENV OMNIGTM_MEDIA_DIR=/app/.data/previews
+RUN npx tsx packages/media/src/cli/preview.ts --demo --slug demo
+
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
