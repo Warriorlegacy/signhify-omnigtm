@@ -10,23 +10,40 @@ export const dynamic = 'force-dynamic';
 const TRACKS: (Track | '')[] = ['', 'REMOTE_JOB', 'B2B_SPRINT'];
 const STAGES: (Stage | '')[] = ['', 'DISCOVERED', 'PREVIEW_BUILT', 'DRAFT_READY', 'SENT', 'REPLIED', 'BOOKED', 'CLOSED_WON'];
 const SENT_STAGES: Stage[] = ['SENT', 'FOLLOW_UP_1', 'REPLIED', 'BOOKED', 'CLOSED_WON'];
+const PAGE_SIZE = 50;
+
+function pageHref(filters: Record<string, string | undefined>, page: number): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) query.set(key, value);
+  }
+  query.set('page', String(page));
+  return `/opportunities?${query.toString()}`;
+}
 
 export default async function OpportunitiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ track?: string; stage?: string; minScore?: string; q?: string }>;
+  searchParams: Promise<{ track?: string; stage?: string; minScore?: string; q?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const repo = await getRepo();
   const minScore = params.minScore ? Number(params.minScore) : undefined;
+  const page = Math.max(1, Number.parseInt(params.page ?? '1', 10) || 1);
 
-  const rows = await repo.listOpportunities({
+  // One extra row tells us whether a next page exists without a second COUNT
+  // query. The previous hard `limit: 200` silently hid every later opportunity.
+  const fetched = await repo.listOpportunities({
     track: params.track ? (params.track as Track) : undefined,
     stage: params.stage ? (params.stage as Stage) : undefined,
     minScore: Number.isFinite(minScore) ? minScore : undefined,
     q: params.q?.trim() || undefined,
-    limit: 200,
+    limit: PAGE_SIZE + 1,
+    offset: (page - 1) * PAGE_SIZE,
   });
+  const hasMore = fetched.length > PAGE_SIZE;
+  const rows = fetched.slice(0, PAGE_SIZE);
+  const filters = { track: params.track, stage: params.stage, minScore: params.minScore, q: params.q };
 
   return (
     <>
@@ -70,24 +87,24 @@ export default async function OpportunitiesPage({
         <button className="btn" type="submit">Filter</button>
         <Link className="btn btn-ghost" href="/opportunities">Reset</Link>
         <span className="spacer" />
-        <span className="small dim">{rows.length} rows</span>
+        <span className="small dim">Page {page} · {rows.length} rows</span>
       </form>
 
       {rows.length === 0 ? (
         <div className="empty">
-          No opportunities match. Run a harvest or widen the filters.
+          {page > 1 ? 'This page is empty.' : 'No opportunities match. Run a harvest or widen the filters.'}
         </div>
       ) : (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Score</th>
-                <th>Company / role</th>
-                <th>Why it fits</th>
-                <th>Stage</th>
-                <th>Source</th>
-                <th>Actions</th>
+                <th scope="col">Score</th>
+                <th scope="col">Company / role</th>
+                <th scope="col">Why it fits</th>
+                <th scope="col">Stage</th>
+                <th scope="col">Source</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -142,6 +159,22 @@ export default async function OpportunitiesPage({
           </table>
         </div>
       )}
+
+      {rows.length > 0 || page > 1 ? (
+        <nav className="row" style={{ justifyContent: 'space-between', marginTop: 12 }} aria-label="Pagination">
+          {page > 1 ? (
+            <Link className="btn btn-sm" href={pageHref(filters, page - 1)}>Previous</Link>
+          ) : (
+            <span />
+          )}
+          <span className="small dim">Page {page}</span>
+          {hasMore ? (
+            <Link className="btn btn-sm" href={pageHref(filters, page + 1)}>Next</Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      ) : null}
     </>
   );
 }

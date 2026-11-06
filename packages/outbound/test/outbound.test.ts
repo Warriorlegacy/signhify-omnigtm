@@ -110,6 +110,30 @@ test('a second real send is refused unless allowResend is explicit', async () =>
   assert.equal(dry.status, 'DRY_RUN');
 });
 
+test('a dry run works without a contact email, a real send does not', async () => {
+  const workspace = await repo.ensureWorkspace();
+  const { id } = await repo.upsertOpportunity({
+    workspaceId: workspace.id,
+    track: 'REMOTE_JOB',
+    source: 'test',
+    externalId: 'unenriched-dry-run',
+    companyName: 'Unenriched Labs',
+    roleTitle: 'Agent engineer',
+    companyUrl: 'https://unenriched.example',
+    sourceUrl: 'https://unenriched.example/jobs',
+    descriptionSnippet: 'Builds agents.',
+  });
+  await repo.saveDraft(id, 'A subject', 'A body with Reply STOP.');
+
+  const dry = await sendDraft(repo, { opportunityId: id, dryRun: true });
+  assert.equal(dry.status, 'DRY_RUN');
+
+  await assert.rejects(
+    () => sendDraft(repo, { opportunityId: id, dryRun: false }),
+    /no contact email/i
+  );
+});
+
 test('mailbox configuration defaults to none when nothing is set', () => {
   const previous = process.env.OMNIGTM_MAILBOXES;
   const previousBrevo = process.env.BREVO_FROM_EMAIL;

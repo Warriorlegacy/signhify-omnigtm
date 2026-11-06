@@ -112,11 +112,18 @@ Implemented locally and verified with `npm run verify` (41 tests, 7/7 eval, prod
 - **Retention.** `npm run maintain` prunes expired `llm_cache` rows and 90-day-old `llm_usage` rows;
   the daily workflow runs it after each harvest. Added an `llm_cache(expires_at)` index.
 - **Webhook hardening.** Constant-time compare for the Meta verify token and a 1 MB payload cap.
+- **Inbound replies reach suppression.** `/api/v1/webhooks/inbound-email` accepts SendGrid/Mailgun/
+  Postmark inbound payloads and Brevo event batches. STOP replies and hard-bounce/spam/unsubscribe
+  events write to `suppressions`, so the "Reply STOP" promise in every email is enforced without a
+  human in the loop. Requires `OMNIGTM_INBOUND_WEBHOOK_SECRET` (set on Render); the route fails
+  closed without it.
+- **Opportunities paginate** at 50 rows instead of silently truncating at a hard 200.
 - **Error and 404 pages** for the dashboard, plus canonical/OG/Twitter metadata, favicon,
   `robots.txt` and `sitemap.xml` for the landing page.
 
 Verified live on the local production build: all security headers present, the 11th bad login gets
-429, and the review/send panel renders. Not yet pushed to `main`; pushing deploys Render + Vercel.
+429, and the review/send panel renders. Pushed to `main` as `3ca9005`, `424b9e7` and `02f54b4`;
+Render and Vercel auto-deploy from there.
 
 
 ## Provider chain
@@ -219,7 +226,7 @@ already serverless-compatible if the media routes are split out later.
 npm install
 npm run db:migrate      # SQLite by default; set DATABASE_URL for Postgres
 npm run dev             # dashboard on http://localhost:3000
-npm run verify          # typecheck + 41 tests + 7/7 eval + production build
+npm run verify          # typecheck + 47 tests + 7/7 eval + production build
 npm run mcp             # stdio MCP server
 npm run harvest         # ATS harvest (OMNIGTM_LLM=0 for heuristic-only)
 ```

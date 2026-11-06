@@ -27,6 +27,7 @@ Required environment variables:
 | `OMNIGTM_ENCRYPTION_KEY` | AES-256-GCM envelope for stored BYOK tokens (32 bytes, hex or base64) |
 | `OMNIGTM_DASHBOARD_TOKEN` | Dashboard login; mutations are refused without it in production |
 | `OMNIGTM_PUBLIC_BASE_URL` | Absolute origin used in preview links inside emails |
+| `OMNIGTM_INBOUND_WEBHOOK_SECRET` | Shared secret for `/api/v1/webhooks/inbound-email`; without it the endpoint refuses to run |
 | `GROQ_API_KEY` | First provider in the failover chain |
 | `DATABASE_URL` | Optional. Without it the service uses `/data/omnigtm.db` |
 
@@ -39,6 +40,19 @@ The free tier has an ephemeral filesystem **except** for the mounted disk. `OMNI
 `OMNIGTM_MEDIA_DIR=/data/previews` keep SQLite and rendered media across deploys. If you outgrow that, point
 `DATABASE_URL` at Neon and treat the disk as a media cache only — a fresh instance can always re-render the demo
 preview, and the manifest is stored in the database so `/preview/[slug]` still resolves.
+
+### Inbound replies and bounces
+
+Every outbound email says "Reply STOP", so point a provider's inbound stream at:
+
+```
+POST https://<service>/api/v1/webhooks/inbound-email?secret=<OMNIGTM_INBOUND_WEBHOOK_SECRET>
+```
+
+SendGrid Inbound Parse (`from`/`subject`/`text`), Mailgun routes (`sender`/`body-plain`), Postmark inbound
+(`From`/`Subject`/`TextBody`) and Brevo transactional events (`event`/`email`, including batched `items`) are all
+accepted. A STOP reply or a hard-bounce/spam/unsubscribe event writes to `suppressions`; dispatch then returns
+`SUPPRESSED` instead of emailing that address again. The secret may also be sent as `x-omnigtm-secret`.
 
 ## Option B — Docker Compose
 
@@ -64,7 +78,7 @@ https://<owner>.github.io/signhify-omnigtm/?slug=demo
 
 | Workflow | Trigger | Does |
 | --- | --- | --- |
-| `ci.yml` | push / PR | typecheck → 41 tests → eval gate → production build |
+| `ci.yml` | push / PR | typecheck → 47 tests → eval gate → production build |
 | `daily-pipeline.yml` | every 6h | migrate, harvest, eval, upload artifact |
 | `token-refresh.yml` | weekly | checks Instagram token expiry, opens an issue at < 7 days |
 | `pages.yml` | viewer changes | publishes the static viewer |

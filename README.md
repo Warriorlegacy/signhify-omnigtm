@@ -77,7 +77,7 @@ external services**.
 
 ```bash
 npm run verify        # typecheck + tests + eval gate + production build
-npm test              # 41 tests across core, gateway, outbound, media, MCP
+npm test              # 47 tests across core, gateway, outbound, media, MCP
 npm run eval          # the 7-dimension gate
 npm run smoke:llm     # opt-in live call against the real provider chain
 npm run harvest       # poll ATS boards, dedupe, LLM-score the shortlist
@@ -107,6 +107,9 @@ npm run mcp           # start the MCP server on stdio
   security headers (`nosniff`, `DENY`, HSTS, CSP, no-referrer) apply to every dashboard response.
 - **Retention is scheduled.** `npm run maintain` prunes expired LLM cache rows and 90-day-old usage rows; it runs
   after every scheduled harvest so the free 0.5 GB Postgres tier does not fill with telemetry.
+- **Replies and bounces suppress automatically.** Point a SendGrid/Mailgun/Postmark inbound stream or a Brevo
+  event webhook at `/api/v1/webhooks/inbound-email` with `OMNIGTM_INBOUND_WEBHOOK_SECRET`; STOP replies and
+  hard-bounce/spam events are written to `suppressions`, and dispatch refuses suppressed addresses.
 - **Webhooks are signature-verified** and idempotent on the external comment id.
 - **No mutable state in git.** `.data/`, previews and databases are ignored.
 

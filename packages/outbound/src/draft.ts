@@ -50,7 +50,12 @@ export async function sendDraft(
 ): Promise<SendResult> {
   const opp: Opportunity | undefined = await repo.getOpportunity(input.opportunityId);
   if (!opp) throw new Error(`Opportunity ${input.opportunityId} not found`);
-  if (!opp.contact_email) throw new Error('Opportunity has no contact email — enrich it before sending.');
+  // A real send needs a recipient. A dry run is a copy preview and never leaves
+  // the server, so it stays available for leads that have not been enriched.
+  if (!input.dryRun && !opp.contact_email) {
+    throw new ValidationError('Opportunity has no contact email — enrich it before sending.');
+  }
+  const recipient = opp.contact_email ?? 'dry-run@example.invalid';
 
   // Callers may send the copy explicitly (edited in the UI) or omit it and let
   // the persisted draft be used. Never send an empty message.
@@ -70,19 +75,19 @@ export async function sendDraft(
   if (input.mailboxEmail) {
     const chosen = mailboxes.find((m) => m.email === input.mailboxEmail);
     if (!chosen) throw new Error(`Mailbox ${input.mailboxEmail} is not configured in OMNIGTM_MAILBOXES`);
-    const result = await dispatchEmail(repo, chosen, { to: opp.contact_email, subject, body }, input.dryRun);
+    const result = await dispatchEmail(repo, chosen, { to: recipient, subject, body }, input.dryRun);
     return record(repo, opp, { subject, body }, result);
   }
 
   if (mailboxes.length === 0) {
     if (!input.dryRun) throw new Error('No mailboxes configured. Set OMNIGTM_MAILBOXES or BREVO_FROM_EMAIL, or use dryRun.');
-    const result = await dispatchEmail(repo, { email: 'dry-run@local', provider: 'BREVO_SMTP', dailyCap: 1 }, { to: opp.contact_email, subject, body }, true);
+    const result = await dispatchEmail(repo, { email: 'dry-run@local', provider: 'BREVO_SMTP', dailyCap: 1 }, { to: recipient, subject, body }, true);
     return record(repo, opp, { subject, body }, result);
   }
 
   const mailbox = await selectMailbox(repo, mailboxes);
   if (!mailbox) throw new Error('All mailboxes reached their daily cap. Raise a cap or wait for the next UTC day.');
-  const result = await dispatchEmail(repo, mailbox, { to: opp.contact_email, subject, body }, input.dryRun);
+  const result = await dispatchEmail(repo, mailbox, { to: recipient, subject, body }, input.dryRun);
   return record(repo, opp, { subject, body }, result);
 }
 
