@@ -7,6 +7,7 @@ Last updated: 2026-11-06
 | Surface | URL | Host |
 | --- | --- | --- |
 | Landing page | https://signhify-omnigtm-landing.vercel.app | Vercel (static, git-connected, root `apps/landing`) |
+| Landing mirror | https://signhify-omnigtm-landing.netlify.app | Netlify (static, API deploy) |
 | Dashboard + API | https://signhify-omnigtm.onrender.com | Render free Docker, FFmpeg included |
 | Health | https://signhify-omnigtm.onrender.com/api/v1/health | Reports `dialect: postgres` |
 | Demo preview | https://signhify-omnigtm.onrender.com/preview/demo | 480 WebP frames @ 60 FPS |
@@ -46,6 +47,7 @@ Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
 - Custom endpoint: sealed, never echoed, appears in the provider chain, deletable
 - Endpoint probe accepts an OpenRouter-sized (795 KB) model list; capped at 2 MB
 - Landing page on Vercel: HTML/CSS/JS/frames 200, immutable frame caching
+- Landing mirror on Netlify: page/js/css/hero/frames 200, dotfiles 404
 - Hero shows a live dashboard capture (`apps/landing/assets/dashboard.jpg`)
 - No horizontal overflow at 390 / 768 / 1440 px; h1 stays 3 lines
 - Drafts round-trip through Postgres: `llm_cache.expires_at` is BIGINT (was INTEGER,
@@ -101,9 +103,11 @@ spelled exactly `production`, which would have left a staging deploy open.
   connected to the repo. Pushing to `main` redeploys. `vercel.json` sets
   immutable caching for frames. The per-deployment URL is SSO-protected; use the
   production alias.
-- **Netlify**: `apps/landing/netlify.toml` is ready, but there is no Netlify
-  token on this machine, so it was not deployed. `npx netlify-cli deploy --prod`
-  after `netlify login` publishes the same folder.
+- **Netlify**: site `signhify-omnigtm-landing` (`8fcad096-8f50-4ded-87d8-17fd27ee637d`),
+  team `piyushrajsingh092`. Logged in as piyushrajsingh092@gmail.com. The CLI
+  stalls on the npm-workspace picker when run from the repo root, so deploy via
+  the REST API instead: zip `apps/landing` (exclude dotfiles) and
+  `POST /api/v1/sites/<id>/deploys` with `Content-Type: application/zip`.
 - **Render**: free Docker service `srv-dblt27rbc2fs73abv0tg`, region `oregon`,
   auto-deploys `main`. Free instances still cannot mount a disk, so runtime
   previews/reels live in `/app/.data` and are lost on restart; the demo is baked
@@ -121,7 +125,6 @@ already serverless-compatible if the media routes are split out later.
 
 ## Still requires human action
 
-1. **Netlify**: `netlify login`, then deploy `apps/landing` for a second mirror.
 2. **Email**: solved — no SMTP key needed. `packages/outbound` now sends through
    the Brevo **HTTP** API (`POST /v3/smtp/email`) using `BREVO_API_KEY`, which is
    set on Render. Mailboxes default to `BREVO_HTTP` when that key exists. Live
