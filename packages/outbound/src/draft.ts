@@ -78,7 +78,14 @@ async function record(
   await repo.insertOutreach({
     opportunityId: opp.id,
     senderMailbox: result.mailbox ?? 'none',
-    relayProvider: result.status === 'DRY_RUN' ? 'DRY_RUN' : result.provider === 'GMAIL_OAUTH' ? 'GMAIL_OAUTH' : 'BREVO_SMTP',
+    relayProvider:
+      result.status === 'DRY_RUN'
+        ? 'DRY_RUN'
+        : result.provider === 'GMAIL_OAUTH'
+          ? 'GMAIL_OAUTH'
+          : result.provider === 'BREVO_HTTP'
+            ? 'BREVO_HTTP'
+            : 'BREVO_SMTP',
     subject: input.subject,
     bodyText: input.body,
     messageIdHeader: result.messageId ?? null,

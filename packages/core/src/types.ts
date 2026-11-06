@@ -76,7 +76,7 @@ export interface OutreachEvent {
   id: string;
   opportunity_id: string;
   sender_mailbox: string;
-  relay_provider: 'GMAIL_OAUTH' | 'BREVO_SMTP' | 'DRY_RUN';
+  relay_provider: 'GMAIL_OAUTH' | 'BREVO_SMTP' | 'BREVO_HTTP' | 'DRY_RUN';
   sequence_step: number;
   subject: string;
   body_text: string;

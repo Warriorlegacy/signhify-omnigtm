@@ -457,7 +457,7 @@ export class Repo {
   async insertOutreach(e: {
     opportunityId: string;
     senderMailbox: string;
-    relayProvider: 'GMAIL_OAUTH' | 'BREVO_SMTP' | 'DRY_RUN';
+    relayProvider: 'GMAIL_OAUTH' | 'BREVO_SMTP' | 'BREVO_HTTP' | 'DRY_RUN';
     sequenceStep?: number;
     subject: string;
     bodyText: string;

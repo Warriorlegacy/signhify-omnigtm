@@ -82,3 +82,66 @@ test('mailbox configuration defaults to none when nothing is set', () => {
     if (previousBrevo !== undefined) process.env.BREVO_FROM_EMAIL = previousBrevo;
   }
 });
+
+test('Brevo HTTP relay is chosen from the API key alone and sends without SMTP credentials', async () => {
+  const { loadMailboxes, dispatchEmail } = await import('../src/index.js');
+
+  const saved = {
+    BREVO_API_KEY: process.env.BREVO_API_KEY,
+    BREVO_FROM_EMAIL: process.env.BREVO_FROM_EMAIL,
+    BREVO_SMTP_KEY: process.env.BREVO_SMTP_KEY,
+    BREVO_SMTP_USER: process.env.BREVO_SMTP_USER,
+    BREVO_FROM_NAME: process.env.BREVO_FROM_NAME,
+  };
+  process.env.BREVO_API_KEY = 'xkeysib-test-key';
+  process.env.BREVO_FROM_EMAIL = 'owner@studio.test';
+  process.env.BREVO_FROM_NAME = 'Studio';
+  delete process.env.BREVO_SMTP_KEY;
+  delete process.env.BREVO_SMTP_USER;
+  delete process.env.OMNIGTM_MAILBOXES;
+
+  const originalFetch = globalThis.fetch;
+  const captured: { url: string; init: RequestInit }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    captured.push({ url: String(url), init });
+    return {
+      ok: true,
+      status: 201,
+      json: async () => ({ messageId: '<brevo-http-123@smtp-relay.mailin.fr>' }),
+      text: async () => '',
+    } as unknown as Response;
+  }) as typeof fetch;
+
+  try {
+    const boxes = loadMailboxes();
+    assert.equal(boxes.length, 1);
+    assert.equal(boxes[0].provider, 'BREVO_HTTP');
+
+    const result = await dispatchEmail(
+      repo,
+      boxes[0],
+      { to: 'brevo-http-check@example.com', subject: 'Hello', body: 'Plain text body' },
+      false
+    );
+
+    assert.equal(result.status, 'SENT');
+    assert.equal(result.provider, 'BREVO_HTTP');
+    assert.equal(result.messageId, '<brevo-http-123@smtp-relay.mailin.fr>');
+
+    assert.equal(captured.length, 1, 'fetch should be called exactly once');
+    const call = captured[0];
+    assert.equal(call.url, 'https://api.brevo.com/v3/smtp/email');
+    const headers = call.init.headers as Record<string, string>;
+    assert.equal(headers['api-key'], 'xkeysib-test-key');
+    const payload = JSON.parse(String(call.init.body));
+    assert.equal(payload.sender.email, 'owner@studio.test');
+    assert.equal(payload.to[0].email, 'brevo-http-check@example.com');
+    assert.equal(payload.textContent, 'Plain text body');
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});

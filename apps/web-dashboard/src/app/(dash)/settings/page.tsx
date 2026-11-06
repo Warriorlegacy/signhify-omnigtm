@@ -19,7 +19,8 @@ const CHECKS: { name: string; label: string; required?: boolean }[] = [
   { name: 'DATABASE_URL', label: 'Postgres (Neon / Supabase)' },
   { name: 'OMNIGTM_ENCRYPTION_KEY', label: 'AES-256-GCM envelope key', required: true },
   { name: 'OMNIGTM_DASHBOARD_TOKEN', label: 'Dashboard token', required: true },
-  { name: 'BREVO_SMTP_KEY', label: 'Brevo SMTP relay' },
+  { name: 'BREVO_API_KEY', label: 'Brevo API key (HTTP sends)' },
+  { name: 'BREVO_SMTP_KEY', label: 'Brevo SMTP relay (optional)' },
   { name: 'IG_LONG_LIVED_ACCESS_TOKEN', label: 'Instagram publishing' },
   { name: 'LINKEDIN_ACCESS_TOKEN', label: 'LinkedIn publishing' },
 ];
@@ -114,7 +115,7 @@ export default async function SettingsPage() {
                     <div className="small" style={{ fontWeight: 600 }}>{mailbox.email}</div>
                     <div className="cell-sub">{mailbox.provider} · cap {mailbox.dailyCap}/day</div>
                   </div>
-                  <span className="badge" data-tone="cyan">{mailbox.provider === 'BREVO_SMTP' ? 'SMTP' : 'Gmail OAuth'}</span>
+                  <span className="badge" data-tone="cyan">{mailbox.provider === 'GMAIL_OAUTH' ? 'Gmail OAuth' : mailbox.provider === 'BREVO_HTTP' ? 'Brevo HTTP' : 'SMTP'}</span>
                 </div>
               ))
             )}

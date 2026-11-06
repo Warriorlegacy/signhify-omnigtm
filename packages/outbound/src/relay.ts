@@ -1,9 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Repo, log, optionalNumber, optionalSecret, requireSecret } from '@omnigtm/core';
 
+export type RelayProvider = 'BREVO_SMTP' | 'BREVO_HTTP' | 'GMAIL_OAUTH';
+
 export interface Mailbox {
   email: string;
-  provider: 'BREVO_SMTP' | 'GMAIL_OAUTH';
+  provider: RelayProvider;
   dailyCap: number;
   fromName?: string;
   refreshTokenEnv?: string;
@@ -19,15 +21,24 @@ export interface OutboundMessage {
 export interface DispatchResult {
   status: 'SENT' | 'DRY_RUN' | 'FAILED' | 'SUPPRESSED';
   mailbox: string | null;
-  provider: 'BREVO_SMTP' | 'GMAIL_OAUTH' | 'DRY_RUN';
+  provider: RelayProvider | 'DRY_RUN';
   messageId?: string;
   error?: string;
 }
 
 /**
+ * Brevo's HTTP API needs only the account API key (xkeysib-...). Its SMTP
+ * relay needs a separate key (xsmtpsib-...) that most accounts never generate,
+ * so prefer HTTP whenever an API key exists.
+ */
+function defaultBrevoProvider(): 'BREVO_HTTP' | 'BREVO_SMTP' {
+  return optionalSecret('BREVO_API_KEY') ? 'BREVO_HTTP' : 'BREVO_SMTP';
+}
+
+/**
  * Mailboxes come from OMNIGTM_MAILBOXES (JSON) so caps and providers are config,
  * not code. Example:
- * [{"email":"you@studio.com","provider":"BREVO_SMTP","dailyCap":35},
+ * [{"email":"you@studio.com","provider":"BREVO_HTTP","dailyCap":35},
  *  {"email":"second@gmail.com","provider":"GMAIL_OAUTH","dailyCap":35,"refreshTokenEnv":"GMAIL_REFRESH_TOKEN_2"}]
  */
 export function loadMailboxes(): Mailbox[] {
@@ -37,7 +48,7 @@ export function loadMailboxes(): Mailbox[] {
       const parsed = JSON.parse(raw) as Mailbox[];
       if (Array.isArray(parsed)) {
         return parsed
-          .filter((m) => m && typeof m.email === 'string' && (m.provider === 'BREVO_SMTP' || m.provider === 'GMAIL_OAUTH'))
+          .filter((m) => m && typeof m.email === 'string' && (m.provider === 'BREVO_SMTP' || m.provider === 'BREVO_HTTP' || m.provider === 'GMAIL_OAUTH'))
           .map((m) => ({
             email: m.email,
             provider: m.provider,
@@ -52,7 +63,7 @@ export function loadMailboxes(): Mailbox[] {
   }
   const single = optionalSecret('BREVO_FROM_EMAIL');
   if (single) {
-    return [{ email: single, provider: 'BREVO_SMTP', dailyCap: optionalNumber('BREVO_DAILY_CAP', 150), fromName: optionalSecret('BREVO_FROM_NAME') }];
+    return [{ email: single, provider: defaultBrevoProvider(), dailyCap: optionalNumber('BREVO_DAILY_CAP', 150), fromName: optionalSecret('BREVO_FROM_NAME') }];
   }
   return [];
 }
@@ -110,6 +121,30 @@ async function sendViaBrevo(mailbox: Mailbox, message: OutboundMessage): Promise
   return info.messageId;
 }
 
+/**
+ * Brevo transactional HTTP API. One credential (BREVO_API_KEY), no SMTP key,
+ * no TLS handshake, and the response carries a real messageId for delivery
+ * tracking. This is the path AutoGTM used for its live sends.
+ */
+async function sendViaBrevoHttp(mailbox: Mailbox, message: OutboundMessage): Promise<string> {
+  const apiKey = requireSecret('BREVO_API_KEY');
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': apiKey, 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({
+      sender: { email: mailbox.email, name: mailbox.fromName ?? mailbox.email },
+      to: [{ email: message.to }],
+      subject: message.subject,
+      textContent: message.body,
+      replyTo: message.replyTo ? { email: message.replyTo } : undefined,
+      headers: { 'List-Unsubscribe': '<mailto:unsubscribe@signhify.dpdns.org?subject=unsubscribe>' },
+    }),
+  });
+  if (!res.ok) throw new Error(`Brevo HTTP send failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+  const json = (await res.json()) as { messageId?: string };
+  return json.messageId ?? randomUUID();
+}
+
 async function gmailAccessToken(refreshTokenEnv: string): Promise<string> {
   const clientId = requireSecret('GMAIL_CLIENT_ID');
   const clientSecret = requireSecret('GMAIL_CLIENT_SECRET');
@@ -147,7 +182,12 @@ export async function dispatchEmail(repo: Repo, mailbox: Mailbox, message: Outbo
     return { status: 'DRY_RUN', mailbox: mailbox.email, provider: mailbox.provider };
   }
   try {
-    const messageId = mailbox.provider === 'BREVO_SMTP' ? await sendViaBrevo(mailbox, message) : await sendViaGmail(mailbox, message);
+    const messageId =
+      mailbox.provider === 'GMAIL_OAUTH'
+        ? await sendViaGmail(mailbox, message)
+        : mailbox.provider === 'BREVO_HTTP'
+          ? await sendViaBrevoHttp(mailbox, message)
+          : await sendViaBrevo(mailbox, message);
     return { status: 'SENT', mailbox: mailbox.email, provider: mailbox.provider, messageId };
   } catch (error) {
     return { status: 'FAILED', mailbox: mailbox.email, provider: mailbox.provider, error: error instanceof Error ? error.message.slice(0, 300) : 'unknown' };
