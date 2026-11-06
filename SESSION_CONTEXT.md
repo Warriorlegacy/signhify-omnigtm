@@ -59,11 +59,15 @@ Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
   `SENT` via `BREVO_HTTP`, `outreach_events` recorded
   `<202611060639.24549591684@smtp-relay.mailin.fr>`, Brevo's own log matches the
   subject and timestamp. Test opportunity was reverted to `DISCOVERED` / no email.
+- FreeLLMAPI preset verified live through `discoverModels` + `draftOutreach`
+- Outreach subjects are collapsed to one header line: the live aggregator draft
+  returned `"...docs/SDKs?\n\n"`, which is a malformed Subject and a header-
+  injection vector; `\s+` is now collapsed and trimmed
 - SSRF guard hardened and covered: `[::ffff:127.0.0.1]` is rewritten by WHATWG URL
   to `[::ffff:7f00:1]` and slipped past the private-address check; mapped and
   IPv4-compatible forms now decode, `fe80::/10` and `fc00::/7` are masked
   properly, and hostnames starting with `fc`/`fd` are no longer misread as IPv6
-- CI green (`Typecheck, test, eval, build`), 36 tests
+- CI green (`Typecheck, test, eval, build`), 37 tests
 
 ## Provider chain
 
@@ -97,7 +101,15 @@ Settings → Custom endpoints accepts any OpenAI-compatible gateway.
   `*.nip.io` targets and does not follow redirects. To test a self-hosted
   FreeLLMAPI on `127.0.0.1:31415`, set `OMNIGTM_ALLOW_PRIVATE_ENDPOINTS=1`
   (intended for local/self-hosted runs, not the public deployment).
-- Responses are capped at 512 KB and the request times out at 10 s.
+- Responses are capped at 2 MB and the request times out at 10 s. The cap is
+  2 MB because OpenRouter's `/models` alone is ~800 KB of metadata.
+- **Verified live** against a local FreeLLMAPI (`127.0.0.1:31415`, unified key):
+  blocked with `baseUrl points at a private address` by default, `GET /v1/models`
+  returned 287 models (capped to 200) in ~296 ms once
+  `OMNIGTM_ALLOW_PRIVATE_ENDPOINTS=1`, and both `chat` and `draftOutreach` ran
+  through `model: auto` with valid JSON. Not reachable from the Render
+  deployment — loopback is the caller's machine, so production needs a public
+  tunnel URL entered in Settings.
 
 ## Auth hardening
 
@@ -141,7 +153,8 @@ already serverless-compatible if the media routes are split out later.
 3. **Social publishing**: Instagram credentials are set but posting is still
    explicit and confirm-gated. LinkedIn/YouTube tokens are not configured.
 4. **Custom gateway**: add the public URL + unified key in Settings if you want
-   freellmapi in the chain from the deployed app.
+   freellmapi in the chain from the deployed app. A `127.0.0.1` URL only works
+   from the machine running it; expose it through a tunnel first.
 
 ## Local development
 
@@ -149,7 +162,7 @@ already serverless-compatible if the media routes are split out later.
 npm install
 npm run db:migrate      # SQLite by default; set DATABASE_URL for Postgres
 npm run dev             # dashboard on http://localhost:3000
-npm run verify          # typecheck + 36 tests + 7/7 eval + production build
+npm run verify          # typecheck + 37 tests + 7/7 eval + production build
 npm run mcp             # stdio MCP server
 npm run harvest         # ATS harvest (OMNIGTM_LLM=0 for heuristic-only)
 ```

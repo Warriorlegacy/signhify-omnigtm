@@ -264,3 +264,39 @@ test('the SSRF guard blocks loopback, link-local and RFC1918 unless explicitly o
     else process.env.OMNIGTM_ALLOW_PRIVATE_ENDPOINTS = savedAllow;
   }
 });
+
+test('a Subject is normalised to a single header line even when the model pads it', async () => {
+  // The live FreeLLMAPI draft returned "Infisical's DX hire - 3D hero for docs/SDKs?\n\n".
+  // A Subject is a header value, so newlines must never survive.
+  const content = JSON.stringify({
+    subject: '  Infisical\u2019s DX hire \u2014 3D hero?\r\n\n  ',
+    body: 'Hi Sam,\n\nSaw the DX role.\n\n\n\nDemo: https://signhify.dpdns.org/preview/demo\n',
+    cta: 'Reply yes',
+  });
+
+  const gateway = new AiGateway({
+    offline: false,
+    providers: [{ id: 'stub', label: 'Stub', kind: 'openai', baseUrl: 'https://stub.invalid/v1', model: 'auto', priority: 1 }],
+    fetchImpl: (async () =>
+      new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })) as typeof fetch,
+  });
+
+  const draft = await draftOutreach(gateway, {
+    companyName: 'Infisical',
+    roleTitle: 'Head of Developer Experience',
+    sourceText: 'Open-source secrets management platform hiring a DX lead.',
+    track: 'EMPLOYMENT',
+    contactName: 'Sam',
+  });
+
+  assert.equal(draft.result.subject, 'Infisical\'s DX hire - 3D hero?');
+  assert.ok(!/[\r\n]/.test(draft.result.subject), 'subject must not contain CR or LF');
+  assert.equal(draft.result.subject, draft.result.subject.trim());
+  // Body keeps its paragraph breaks but loses the 3+ newline runs and trailing space.
+  assert.ok(draft.result.body.includes('\n\n'), 'body should keep paragraph breaks');
+  assert.ok(!draft.result.body.includes('\n\n\n'), 'body should not keep 3+ newline runs');
+  assert.equal(draft.result.body, draft.result.body.trim());
+});

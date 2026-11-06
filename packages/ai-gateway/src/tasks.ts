@@ -184,7 +184,9 @@ export async function draftOutreach(
   return {
     result: {
       ...res.output,
-      subject: toAscii(res.output.subject),
+      // A Subject is a header value: collapse newlines and runs of whitespace so
+      // a chatty model cannot emit a malformed or injected header.
+      subject: toAscii(res.output.subject).replace(/\s+/g, ' ').trim(),
       body: toAscii(body).replace(/\n{3,}/g, '\n\n').trim(),
     },
     provider: res.provider,
