@@ -125,6 +125,26 @@ Verified live on the local production build: all security headers present, the 1
 429, and the review/send panel renders. Pushed to `main` as `3ca9005`, `424b9e7` and `02f54b4`;
 Render and Vercel auto-deploy from there.
 
+### Second pass — inbound compliance and pagination (`afbb705`)
+
+- `/api/v1/webhooks/inbound-email` normalises SendGrid/Mailgun/Postmark inbound mail and Brevo
+  transactional events (single object and batched `items`). STOP replies go through
+  `handleInboundReply`; hard-bounce/spam/unsubscribe events write to `suppressions`. The route
+  fails closed without `OMNIGTM_INBOUND_WEBHOOK_SECRET`, compares it in constant time, and caps
+  payloads at 256 KB.
+- Reply text leads with the body, not the subject, because STOP is anchored at the start — a
+  quoted "Reply STOP" footer deeper in a thread must not unsubscribe an ordinary reply.
+- Dry runs no longer require a contact email; real sends still refuse without one.
+- Opportunities paginate at 50 rows with Previous/Next that also render on an empty page.
+- Verified locally on a production build (47 tests, 7/7 eval): STOP → `suppressed: 1` and a
+  `suppressions` row; a hard_bounce + spam batch → `suppressed: 2`; wrong secret → 401;
+  unenriched dry run → `DRY_RUN`; `/opportunities?page=2` → Previous link present.
+- `OMNIGTM_INBOUND_WEBHOOK_SECRET` generated, stored in `.data/deploy-secrets.env`, and set on
+  Render (env PUT → 200).
+
+Known gap: no live opportunity carries `contact_email`, and there is no enrichment provider or
+manual editor yet — so dry runs work, but real sends are blocked until a contact is added.
+
 
 ## Provider chain
 
