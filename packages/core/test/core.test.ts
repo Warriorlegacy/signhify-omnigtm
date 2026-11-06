@@ -94,3 +94,40 @@ test('cache expiry fits a millisecond epoch (Postgres INTEGER would overflow)', 
     else process.env.OMNIGTM_DB_PATH = previousPath;
   }
 });
+
+test('an inbound reply advances only the contacted lead to REPLIED', async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+
+  const previousPath = process.env.OMNIGTM_DB_PATH;
+  process.env.OMNIGTM_OFFLINE_TEST = '1';
+  process.env.OMNIGTM_DB_PATH = join(mkdtempSync(join(tmpdir(), 'omnigtm-reply-')), 'reply.db');
+  try {
+    const { Repo, closeDb } = await import('../src/index.js');
+    const repo = await Repo.open();
+    const workspace = await repo.ensureWorkspace();
+    const { id } = await repo.upsertOpportunity({
+      workspaceId: workspace.id,
+      track: 'REMOTE_JOB',
+      source: 'test',
+      externalId: 'reply-tracking',
+      companyName: 'Reply Labs',
+      roleTitle: 'Agent engineer',
+      contactEmail: 'Ada@Example.com',
+      companyUrl: 'https://reply.example',
+      sourceUrl: 'https://reply.example/jobs',
+      descriptionSnippet: 'Builds agents.',
+      stage: 'SENT',
+    });
+
+    assert.equal(await repo.markReplied('nobody@example.com'), 0, 'unknown senders do not move the pipeline');
+    assert.equal(await repo.markReplied('ada@example.com'), 1, 'the contacted address is matched case-insensitively');
+    assert.equal((await repo.getOpportunity(id))?.stage, 'REPLIED');
+    assert.equal(await repo.markReplied('ada@example.com'), 0, 'an already-replied lead is not counted twice');
+    await closeDb();
+  } finally {
+    if (previousPath === undefined) delete process.env.OMNIGTM_DB_PATH;
+    else process.env.OMNIGTM_DB_PATH = previousPath;
+  }
+});

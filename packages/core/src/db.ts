@@ -469,6 +469,18 @@ export class Repo {
     );
   }
 
+  /**
+   * Inbound reply tracking. Only a lead that was actually contacted advances, so
+   * random mail or a supplier's newsletter cannot move the pipeline.
+   */
+  async markReplied(email: string): Promise<number> {
+    const result = await this.driver.run(
+      "UPDATE opportunities SET stage = 'REPLIED', updated_at = ? WHERE LOWER(contact_email) = ? AND stage IN ('SENT', 'FOLLOW_UP_1')",
+      [nowIso(), email.trim().toLowerCase()]
+    );
+    return result.changes;
+  }
+
   /** Persist the exact copy that was generated, so review and send agree. */
   async saveDraft(id: string, subject: string, body: string): Promise<void> {
     await this.driver.run('UPDATE opportunities SET draft_subject = ?, draft_body = ?, updated_at = ? WHERE id = ?', [
