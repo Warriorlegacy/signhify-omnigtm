@@ -69,6 +69,14 @@ jobs:
           OMNIGTM_PUBLIC_BASE_URL: ${{ vars.OMNIGTM_PUBLIC_BASE_URL }}
           OMNIGTM_LLM: ${{ inputs.useLlm == false && '0' || '1' }}
 
+      - name: Retention sweep
+        # Expired cache keys and 90-day-old usage rows otherwise accumulate
+        # forever; the free Postgres tier is 0.5 GB.
+        run: npm run maintain
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OMNIGTM_ENCRYPTION_KEY: ${{ secrets.OMNIGTM_ENCRYPTION_KEY }}
+
       - name: Eval gate
         run: npm run eval | tee eval-output.txt
 

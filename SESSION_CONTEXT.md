@@ -82,7 +82,42 @@ Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
   (`expires_at: 0`), which the old arithmetic read as a huge negative day count —
   it would have opened a false "expired" issue and failed every week. The check
   now reports `does not expire`
-- CI green (`Typecheck, test, eval, build`), 37 tests
+- CI green (`Typecheck, test, eval, build`), 41 tests
+
+## Production hardening pass (2026-11-06, evening)
+
+Implemented locally and verified with `npm run verify` (41 tests, 7/7 eval, production build):
+
+- **The dashboard send path was broken, not just unpolished.** "Dry-run send" posted only
+  `{opportunityId, confirm, dryRun}` while the route required `subject` and `body`, so every row
+  returned 400. Drafts were also never persisted — `createDraft` only moved the stage. Now:
+  `opportunities.draft_subject` / `draft_body` are persisted (additive `ALTER TABLE` for existing
+  databases), `sendDraft` falls back to the stored draft when copy is omitted, and the
+  Opportunities UI has a review panel with editable subject/body plus separate Dry run and Send
+  buttons. Verified locally: draft 200, then dispatch with no copy → `DRY_RUN`.
+- **Duplicate-send guard.** A second real send to the same opportunity is refused (`allowResend:
+  true` required) because a retry or double-click must not mail the same person twice. Wired
+  through REST and the MCP `dispatch_outreach` tool; dry runs are exempt.
+- **Login throttle.** 10 attempts/IP/15 min, 429 + `Retry-After`, cleared on success. In-process
+  `Map` with a `ponytail:` note: correct for one Render instance, needs a shared store if scaled.
+- **Fail-closed login.** `/api/v1/session` now mirrors `hasSession()`: a missing dashboard token is
+  a config error unless `OMNIGTM_OFFLINE_TEST=1`. Previously it returned `dev-open` outside
+  `NODE_ENV=production`, which disagreed with the page guard.
+- **Public health probe stops leaking driver errors.** It logs the Postgres error and returns only
+  `database unavailable`.
+- **Security headers** on every dashboard response: CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`,
+  `no-referrer`, `Permissions-Policy`, COOP, and `X-Robots-Tag: noindex`. The dashboard also ships
+  `robots.txt` disallow-all. The landing page gets the non-CSP set from `vercel.json` and
+  `netlify.toml`.
+- **Retention.** `npm run maintain` prunes expired `llm_cache` rows and 90-day-old `llm_usage` rows;
+  the daily workflow runs it after each harvest. Added an `llm_cache(expires_at)` index.
+- **Webhook hardening.** Constant-time compare for the Meta verify token and a 1 MB payload cap.
+- **Error and 404 pages** for the dashboard, plus canonical/OG/Twitter metadata, favicon,
+  `robots.txt` and `sitemap.xml` for the landing page.
+
+Verified live on the local production build: all security headers present, the 11th bad login gets
+429, and the review/send panel renders. Not yet pushed to `main`; pushing deploys Render + Vercel.
+
 
 ## Provider chain
 
@@ -184,7 +219,7 @@ already serverless-compatible if the media routes are split out later.
 npm install
 npm run db:migrate      # SQLite by default; set DATABASE_URL for Postgres
 npm run dev             # dashboard on http://localhost:3000
-npm run verify          # typecheck + 37 tests + 7/7 eval + production build
+npm run verify          # typecheck + 41 tests + 7/7 eval + production build
 npm run mcp             # stdio MCP server
 npm run harvest         # ATS harvest (OMNIGTM_LLM=0 for heuristic-only)
 ```

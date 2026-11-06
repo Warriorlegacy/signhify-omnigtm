@@ -64,7 +64,7 @@ https://<owner>.github.io/signhify-omnigtm/?slug=demo
 
 | Workflow | Trigger | Does |
 | --- | --- | --- |
-| `ci.yml` | push / PR | typecheck → 26 tests → eval gate → production build |
+| `ci.yml` | push / PR | typecheck → 41 tests → eval gate → production build |
 | `daily-pipeline.yml` | every 6h | migrate, harvest, eval, upload artifact |
 | `token-refresh.yml` | weekly | checks Instagram token expiry, opens an issue at < 7 days |
 | `pages.yml` | viewer changes | publishes the static viewer |
@@ -81,6 +81,19 @@ Repository secrets for the daily pipeline: `DATABASE_URL`, `OMNIGTM_ENCRYPTION_K
 
 Rotating `OMNIGTM_ENCRYPTION_KEY` invalidates sealed custom endpoints — re-add them in Settings afterwards.
 Rotating `OMNIGTM_DASHBOARD_TOKEN` invalidates existing sessions by design.
+
+## Operational hygiene
+
+- **Retention**: `npm run maintain` deletes expired `llm_cache` rows and `llm_usage` rows older than 90 days. The
+  scheduled pipeline runs it after every harvest; run it manually after any backfill.
+- **Health**: `/api/v1/health` is the only public probe. It returns `503` with `database unavailable` on failure and
+  logs the driver error server-side, so a public response never leaks a host, user or SQL fragment.
+- **Headers**: the dashboard sends HSTS, CSP, `X-Frame-Options: DENY`, `nosniff`, `no-referrer` and a restrictive
+  `Permissions-Policy`; the landing page gets the same set (minus CSP) from `vercel.json` / `netlify.toml`.
+- **Login throttle**: 10 attempts per IP per 15 minutes, in-process. That matches the single free Render instance;
+  move the bucket to Postgres or Redis before scaling horizontally.
+- **Backups**: Postgres is the durable store. Neon's free plan includes a restore window; test a restore before you
+  rely on it, and remember that rendered reels/previews under `/app/.data` are intentionally regenerable.
 
 ## Known limits (honest list)
 

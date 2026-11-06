@@ -77,10 +77,11 @@ external services**.
 
 ```bash
 npm run verify        # typecheck + tests + eval gate + production build
-npm test              # 37 tests across core, gateway, outbound, media, MCP
+npm test              # 41 tests across core, gateway, outbound, media, MCP
 npm run eval          # the 7-dimension gate
 npm run smoke:llm     # opt-in live call against the real provider chain
 npm run harvest       # poll ATS boards, dedupe, LLM-score the shortlist
+npm run maintain      # prune expired LLM cache and 90-day-old usage rows
 npm run preview       # build the synthetic 60 FPS demo preview
 npm run reel          # render a demo reel
 npm run mcp           # start the MCP server on stdio
@@ -98,6 +99,14 @@ npm run mcp           # start the MCP server on stdio
 - **BYOK tokens are sealed** with AES-256-GCM in the database; the API only ever reports `hasKey: true`.
 - **Mutations require a session.** `/api/v1/health` and `/preview/*` are public; everything else needs the dashboard
   token. Sending email additionally requires `confirm: true`, and defaults to dry-run.
+- **Login is rate-limited** to 10 attempts per IP per 15 minutes, and a missing dashboard token fails closed even
+  outside `NODE_ENV=production`.
+- **A real send is single-shot.** A second real email to the same opportunity is refused unless `allowResend: true`
+  is explicit, so double-clicks and agent retries cannot duplicate mail. Drafts are persisted verbatim for review.
+- **The public probes stay quiet.** The health route logs driver errors but returns only `database unavailable`;
+  security headers (`nosniff`, `DENY`, HSTS, CSP, no-referrer) apply to every dashboard response.
+- **Retention is scheduled.** `npm run maintain` prunes expired LLM cache rows and 90-day-old usage rows; it runs
+  after every scheduled harvest so the free 0.5 GB Postgres tier does not fill with telemetry.
 - **Webhooks are signature-verified** and idempotent on the external comment id.
 - **No mutable state in git.** `.data/`, previews and databases are ignored.
 

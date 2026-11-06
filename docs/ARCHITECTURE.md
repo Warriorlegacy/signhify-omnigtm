@@ -62,6 +62,8 @@ them to `$1..$n`. Text timestamps keep the two dialects identical.
 
 `opportunities.idempotency_key` is unique, which is what makes re-harvesting safe. `social_comments_dm_log
 .external_comment_id` is unique, which is what stops duplicate Instagram DMs when Meta retries a webhook.
+`opportunities.draft_subject` / `draft_body` persist the exact generated copy, so the review panel, the REST send and
+the MCP tool all send the same bytes instead of regenerating and diverging.
 
 ## The eval gate
 
