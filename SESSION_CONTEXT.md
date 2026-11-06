@@ -145,6 +145,29 @@ Render and Vercel auto-deploy from there.
 Known gap: no live opportunity carries `contact_email`, and there is no enrichment provider or
 manual editor yet — so dry runs work, but real sends are blocked until a contact is added.
 
+### Third pass — contact editor and reply stage (`b2c8a3e`)
+
+- **Manual contact editor.** `PATCH /api/v1/opportunities/[id]` validates and normalises the email
+  (`normaliseEmail` — lowercase, length-capped, RFC-5322-ish), and the outreach panel now carries a
+  contact-email field with a Save button. Production has 115 opportunities and zero `contact_email`,
+  so this was the only thing blocking a real send.
+- **Reply stage tracking.** A non-STOP reply from an address that was actually contacted advances that
+  lead to `REPLIED` (`markReplied`, scoped to `SENT`/`FOLLOW_UP_1`); unknown senders and supplier
+  newsletters leave the pipeline untouched, and a second reply does not double-count.
+- 49 tests, 7/7 eval, production build green. Verified locally: `PATCH` returns 200 and persists the
+  email; the inbound webhook still suppresses STOP/bounces and now reports `replied`.
+
+## Known gaps
+
+- **No enrichment provider.** `contact_email` is manual only, so every live send starts with an
+  operator typing an address.
+- **No real send has been made from production.** Dry runs work; the first real send needs a contact
+  email on the lead and a live Brevo key (already set on Render).
+- **Login throttle is in-process.** Correct for one Render instance; a shared store is needed if the
+  service scales horizontally.
+- **Media routes need FFmpeg.** Vercel/Netlify cannot run them on a free tier, so the dashboard and
+  the media worker stay on separate hosts.
+
 
 ## Provider chain
 
