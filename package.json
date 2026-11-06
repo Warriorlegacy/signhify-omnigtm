@@ -17,7 +17,7 @@
     "build": "npm run build --workspace @omnigtm/web",
     "start": "npm run start --workspace @omnigtm/web",
     "typecheck": "tsc -p tsconfig.check.json --noEmit",
-    "test": "node --import tsx --test packages/core/test/*.test.ts packages/ai-gateway/test/*.test.ts packages/outbound/test/*.test.ts packages/media/test/*.test.ts packages/mcp-server/test/*.test.ts",
+    "test": "node --import tsx --test packages/core/test/*.test.ts packages/ai-gateway/test/*.test.ts packages/outbound/test/*.test.ts packages/media/test/*.test.ts packages/mcp-server/test/*.test.ts apps/web-dashboard/src/lib/*.test.ts",
     "eval": "tsx packages/ai-gateway/src/cli/eval.ts",
     "eval:py": "python packages/ai-gateway/evals/run_evals.py",
     "smoke:llm": "tsx packages/ai-gateway/src/cli/smoke.ts",
@@ -26,6 +26,7 @@
     "reel": "tsx packages/media/src/cli/reel.ts",
     "mcp": "tsx packages/mcp-server/src/index.ts",
     "db:migrate": "tsx packages/core/src/cli/migrate.ts",
+    "maintain": "tsx packages/core/src/cli/maintain.ts",
     "verify": "npm run typecheck && npm test && npm run eval && npm run build"
   },
   "devDependencies": {

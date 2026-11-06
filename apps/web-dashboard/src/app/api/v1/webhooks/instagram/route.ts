@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { optionalSecret } from '@omnigtm/core';
+import { optionalSecret, safeEqual } from '@omnigtm/core';
 import { recordCommentDm, sendInstagramPrivateReply } from '@omnigtm/media';
 import { getRepo } from '@/lib/api';
 
@@ -12,7 +12,7 @@ export async function GET(request: Request): Promise<Response> {
   const token = url.searchParams.get('hub.verify_token');
   const challenge = url.searchParams.get('hub.challenge');
   const expected = optionalSecret('IG_WEBHOOK_VERIFY_TOKEN');
-  if (mode === 'subscribe' && expected && token === expected && challenge) {
+  if (mode === 'subscribe' && expected && token && safeEqual(token, expected) && challenge) {
     return new Response(challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } });
   }
   return new Response('Forbidden', { status: 403 });
@@ -40,7 +40,12 @@ function validSignature(raw: string, header: string | null, secret: string): boo
  * cannot double-DM a commenter.
  */
 export async function POST(request: Request): Promise<Response> {
+  // Meta payloads are small. Cap before parsing so a leaked signature secret is
+  // not the only thing standing between the process and an oversized body.
+  const declared = Number(request.headers.get('content-length') ?? 0);
+  if (declared > 1_000_000) return Response.json({ ok: false, error: 'Payload too large' }, { status: 413 });
   const raw = await request.text();
+  if (raw.length > 1_000_000) return Response.json({ ok: false, error: 'Payload too large' }, { status: 413 });
   const secret = optionalSecret('IG_WEBHOOK_SECRET');
   if (!secret) {
     // No secret configured means the integration is off - never accept unsigned input.

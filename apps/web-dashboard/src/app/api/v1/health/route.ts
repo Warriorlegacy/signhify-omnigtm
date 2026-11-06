@@ -1,8 +1,9 @@
+import { log } from '@omnigtm/core';
 import { getRepo } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
-/** Public liveness probe: no secrets, no pipeline data. */
+/** Public liveness probe: no secrets, no pipeline data, no driver internals. */
 export async function GET(): Promise<Response> {
   const started = Date.now();
   try {
@@ -21,8 +22,14 @@ export async function GET(): Promise<Response> {
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (error) {
+    // The probe is public. Log the driver error, return a stable message; a
+    // Postgres error can otherwise disclose hosts, users and SQL fragments.
+    log.error('health check failed', {
+      message: error instanceof Error ? error.message : String(error),
+      latencyMs: Date.now() - started,
+    });
     return Response.json(
-      { ok: false, error: error instanceof Error ? error.message : 'unknown' },
+      { ok: false, error: 'database unavailable' },
       { status: 503, headers: { 'Cache-Control': 'no-store' } }
     );
   }
