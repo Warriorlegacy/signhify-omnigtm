@@ -28,6 +28,14 @@ jobs:
             "https://graph.facebook.com/v23.0/debug_token?input_token=${IG_TOKEN}&access_token=${IG_TOKEN}")
           expires=$(echo "$response" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.data?.expires_at??0)}catch{console.log(0)}})")
           now=$(date +%s)
+          if [ "$expires" -le 0 ]; then
+            # Never-expiring tokens report expires_at=0. The old arithmetic turned
+            # that into a huge negative day count, opened a false expiry issue and
+            # failed the job every week.
+            echo "state=never" >> "$GITHUB_OUTPUT"
+            echo "Token does not expire."
+            exit 0
+          fi
           days=$(( (expires - now) / 86400 ))
           echo "days_left=$days" >> "$GITHUB_OUTPUT"
           echo "Token expires in ${days} day(s)."
