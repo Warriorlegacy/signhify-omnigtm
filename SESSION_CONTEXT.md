@@ -67,6 +67,21 @@ Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
   to `[::ffff:7f00:1]` and slipped past the private-address check; mapped and
   IPv4-compatible forms now decode, `fe80::/10` and `fc00::/7` are masked
   properly, and hostnames starting with `fc`/`fd` are no longer misread as IPv6
+- Scheduled harvest now reaches production: GitHub Actions had **zero repo
+  secrets**, so `daily-pipeline` silently migrated to a throwaway SQLite file
+  inside the runner. The workflow now fails when `DATABASE_URL` is missing, and
+  the secrets are set — a dispatched run logged `dialect: postgres`, inserted
+  **109 jobs** from 6 sources with 0 errors, and all 115 rows are visible through
+  `/api/v1/opportunities` (109 `REMOTE_JOB`, 6 `B2B_SPRINT`)
+- CI is green in **1m28s**: the `Ensure FFmpeg` step had hung on `apt-get update`
+  for the entire 25-minute job timeout on `ubuntu-26.04`, so typecheck/tests/build
+  never ran. It is now bounded to 3 minutes with apt acquire timeouts and
+  `continue-on-error`; the re-run installed FFmpeg and the 480-frame media test
+  ran (`skipped 0`)
+- Instagram token health is honest: the configured token is non-expiring
+  (`expires_at: 0`), which the old arithmetic read as a huge negative day count —
+  it would have opened a false "expired" issue and failed every week. The check
+  now reports `does not expire`
 - CI green (`Typecheck, test, eval, build`), 37 tests
 
 ## Provider chain
@@ -133,6 +148,13 @@ spelled exactly `production`, which would have left a staging deploy open.
   previews/reels live in `/app/.data` and are lost on restart; the demo is baked
   into the image and the database is now Neon, so only generated media is
   transient.
+- **GitHub Actions**: repo secrets `DATABASE_URL`, `OMNIGTM_ENCRYPTION_KEY`,
+  `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `APINEX_API_KEY`,
+  `CEREBRAS_API_KEY`, `NVIDIA_API_KEY`, `MISTRAL_API_KEY`,
+  `IG_LONG_LIVED_ACCESS_TOKEN`. The scheduled harvest writes to the same Neon
+  database the dashboard reads. Set new provider keys with
+  `gh secret set <NAME> --repo Warriorlegacy/signhify-omnigtm`; a missing
+  `DATABASE_URL` fails the workflow instead of falling back to SQLite.
 
 ## Why the app is not fully on Vercel
 
@@ -145,14 +167,14 @@ already serverless-compatible if the media routes are split out later.
 
 ## Still requires human action
 
-2. **Email**: solved — no SMTP key needed. `packages/outbound` now sends through
+1. **Email**: solved — no SMTP key needed. `packages/outbound` now sends through
    the Brevo **HTTP** API (`POST /v3/smtp/email`) using `BREVO_API_KEY`, which is
    set on Render. Mailboxes default to `BREVO_HTTP` when that key exists. Live
    check returned `201` with a real `messageId`. `BREVO_SMTP_*` remain supported
    but optional (they need a separate `xsmtpsib-` key).
-3. **Social publishing**: Instagram credentials are set but posting is still
+2. **Social publishing**: Instagram credentials are set but posting is still
    explicit and confirm-gated. LinkedIn/YouTube tokens are not configured.
-4. **Custom gateway**: add the public URL + unified key in Settings if you want
+3. **Custom gateway**: add the public URL + unified key in Settings if you want
    freellmapi in the chain from the deployed app. A `127.0.0.1` URL only works
    from the machine running it; expose it through a tunnel first.
 

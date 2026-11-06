@@ -77,7 +77,7 @@ external services**.
 
 ```bash
 npm run verify        # typecheck + tests + eval gate + production build
-npm test              # 26 tests across core, gateway, outbound, media, MCP
+npm test              # 37 tests across core, gateway, outbound, media, MCP
 npm run eval          # the 7-dimension gate
 npm run smoke:llm     # opt-in live call against the real provider chain
 npm run harvest       # poll ATS boards, dedupe, LLM-score the shortlist
