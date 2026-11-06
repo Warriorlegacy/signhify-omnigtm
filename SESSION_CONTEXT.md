@@ -55,6 +55,10 @@ Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
   telemetry `ok=1`
 - Outreach drafts are ASCII-flattened: a live Groq draft had 0 typographic characters
 - Brevo HTTP transport live: settings shows `Brevo HTTP`, real send returned 201 + messageId
+- In-app send verified end to end on Render: `/api/v1/outreach/dispatch` returned
+  `SENT` via `BREVO_HTTP`, `outreach_events` recorded
+  `<202611060639.24549591684@smtp-relay.mailin.fr>`, Brevo's own log matches the
+  subject and timestamp. Test opportunity was reverted to `DISCOVERED` / no email.
 - CI green (`Typecheck, test, eval, build`), 34 tests
 
 ## Provider chain
