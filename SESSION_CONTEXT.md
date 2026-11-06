@@ -48,7 +48,11 @@ Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
 - Landing page on Vercel: HTML/CSS/JS/frames 200, immutable frame caching
 - Hero shows a live dashboard capture (`apps/landing/assets/dashboard.jpg`)
 - No horizontal overflow at 390 / 768 / 1440 px; h1 stays 3 lines
-- CI green (`Typecheck, test, eval, build`), 31 tests
+- Drafts round-trip through Postgres: `llm_cache.expires_at` is BIGINT (was INTEGER,
+  which overflowed at a 1.79e12 ms epoch and failed every LLM call); cache row written,
+  telemetry `ok=1`
+- Outreach drafts are ASCII-flattened: a live Groq draft had 0 typographic characters
+- CI green (`Typecheck, test, eval, build`), 33 tests
 
 ## Provider chain
 
