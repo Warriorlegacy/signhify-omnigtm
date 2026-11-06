@@ -27,8 +27,18 @@ jobs:
           cache: npm
 
       - name: Ensure FFmpeg
-        # ubuntu-latest already ships ffmpeg; only pay for apt when it is missing.
-        run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg)
+        # Opportunistic only: the media test skips itself when ffmpeg is absent.
+        # Bounded because apt-get update hung for the full 25-minute job timeout
+        # on the ubuntu-26.04 image (2026-11-06) and blocked every later step.
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1; then
+            echo "ffmpeg already installed"
+            exit 0
+          fi
+          sudo apt-get update -o Acquire::Retries=2 -o Acquire::http::Timeout=15 -o Acquire::https::Timeout=15
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg
 
       - name: Install dependencies
         run: npm ci
