@@ -181,7 +181,40 @@ export async function draftOutreach(
       repaired = true;
     }
   }
-  return { result: { ...res.output, body: body.replace(/\n{3,}/g, '\n\n').trim() }, provider: res.provider, latencyMs: res.latencyMs, repaired };
+  return {
+    result: {
+      ...res.output,
+      subject: toAscii(res.output.subject),
+      body: toAscii(body).replace(/\n{3,}/g, '\n\n').trim(),
+    },
+    provider: res.provider,
+    latencyMs: res.latencyMs,
+    repaired,
+  };
+}
+
+/**
+ * Models emit typographic punctuation (curly quotes, em dashes, no-break
+ * spaces). Cold email is plain text: those render as "?" in some clients and
+ * can trip spam filters, so flatten them to ASCII at the draft exit point.
+ */
+const ASCII_PUNCTUATION: Record<string, string> = {
+  '\u2018': "'", '\u2019': "'", '\u201A': "'", '\u201B': "'",
+  '\u201C': '"', '\u201D': '"', '\u201E': '"', '\u201F': '"',
+  '\u2010': '-', '\u2011': '-', '\u2012': '-', '\u2013': '-', '\u2014': '-', '\u2015': '-',
+  '\u2212': '-',
+  '\u00B7': '-',
+  '\u2026': '...',
+  '\u00A0': ' ', '\u202F': ' ', '\u2007': ' ', '\u2009': ' ',
+  '\u200B': '',
+  '\u00AB': '"', '\u00BB': '"',
+};
+
+export function toAscii(text: string): string {
+  return text.replace(
+    /[\u2018-\u201F\u2010-\u2015\u2212\u00B7\u2026\u00A0\u202F\u2007\u2009\u200B\u00AB\u00BB]/g,
+    (ch) => ASCII_PUNCTUATION[ch] ?? ch
+  );
 }
 
 export async function generateReelScript(

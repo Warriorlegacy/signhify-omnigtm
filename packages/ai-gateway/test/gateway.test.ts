@@ -169,3 +169,31 @@ test('discovery accepts an OpenRouter-sized model list but rejects an unbounded 
     globalThis.fetch = original;
   }
 });
+
+test('draft output is flattened to ASCII for plain-text email', async () => {
+  const { toAscii } = await import('../src/index.js');
+
+  // The exact characters a live draft produced in production.
+  const dirty = 'I saw Mastra\u2019s framework for forward\u2011deploy \u2014 ship in 48\u202Fhours. \u201CGreat\u201D \u2026';
+  const clean = toAscii(dirty);
+  assert.equal(clean, 'I saw Mastra\'s framework for forward-deploy - ship in 48 hours. "Great" ...');
+  assert.equal([...clean].filter((ch) => ch.charCodeAt(0) > 127).length, 0);
+
+  // And the shared draft path applies it, so a model reply can never leak typography.
+  const gateway = new AiGateway({
+    offline: true,
+    providers: [{ id: 'mock', label: 'Mock', kind: 'mock', model: 'm1', priority: 1 }],
+  });
+  const draft = await draftOutreach(gateway, {
+    companyName: 'Mastra',
+    roleTitle: 'Hero section',
+    sourceText: 'TypeScript agent framework with deterministic evals.',
+    track: 'PROJECT',
+  });
+  const typographic = /[\u2018-\u201F\u2010-\u2015\u2212\u00B7\u2026\u00A0\u202F\u2007\u2009\u200B\u00AB\u00BB]/g;
+  const leaked = (draft.result.subject + draft.result.body).match(typographic) ?? [];
+  assert.deepEqual(leaked, [], `typography leaked: ${JSON.stringify(leaked)}`);
+
+  // Accented names are letters, not punctuation - they must survive.
+  assert.equal(toAscii('José Müller'), 'José Müller');
+});
