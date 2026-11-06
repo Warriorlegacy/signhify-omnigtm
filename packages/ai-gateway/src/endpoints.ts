@@ -103,13 +103,21 @@ export function parseBaseUrl(input: string): string {
   return url.toString().replace(/\/+$/, '');
 }
 
-/** Private ranges, loopback and link-local. */
-function isPrivateAddress(raw: string): boolean {
-  const ip = raw.replace(/^\[|\]$/g, '').toLowerCase();
-  if (ip === '::1' || ip === '::' || ip === '0.0.0.0') return true;
-  if (ip.startsWith('fe80') || ip.startsWith('fc') || ip.startsWith('fd')) return true;
-  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(ip);
-  const v4 = mapped ? mapped[1] : ip;
+/** Expand a pure-hex IPv6 literal to eight 16-bit groups; null if malformed. */
+function expandIpv6(ip: string): number[] | null {
+  if (!ip.includes(':') || ip.includes('.')) return null;
+  const halves = ip.split('::');
+  if (halves.length > 2) return null;
+  const left = halves[0] ? halves[0].split(':') : [];
+  const right = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+  const missing = 8 - left.length - right.length;
+  if (halves.length === 2 ? missing < 0 : left.length !== 8) return null;
+  const parts = halves.length === 2 ? [...left, ...Array(missing).fill('0'), ...right] : left;
+  const nums = parts.map((p) => (/^[0-9a-f]{1,4}$/.test(p) ? parseInt(p, 16) : NaN));
+  return nums.some((n) => Number.isNaN(n)) ? null : nums;
+}
+
+function isPrivateV4(v4: string): boolean {
   const parts = v4.split('.').map(Number);
   if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false;
   return (
@@ -120,6 +128,29 @@ function isPrivateAddress(raw: string): boolean {
     (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
     (parts[0] === 192 && parts[1] === 168)
   );
+}
+
+/** Private ranges, loopback and link-local, IPv4 and IPv6. */
+function isPrivateAddress(raw: string): boolean {
+  const ip = raw.replace(/^\[|\]$/g, '').toLowerCase();
+  const dottedMapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(ip);
+  if (dottedMapped) return isPrivateV4(dottedMapped[1]);
+
+  // Hostnames reach here too, so IPv4/IPv6 checks stay behind the shape test.
+  if (!ip.includes(':')) return isPrivateV4(ip);
+
+  const hextets = expandIpv6(ip);
+  if (!hextets) return false;
+  const [a, b, c, d, e, f, g, h] = hextets;
+  // IPv4-mapped (::ffff:7f00:1) and IPv4-compatible (::7f00:1) carry the real
+  // target in the last 32 bits. WHATWG URL rewrites ::ffff:127.0.0.1 to
+  // ::ffff:7f00:1, so matching the dotted form alone is a bypass.
+  if (a === 0 && b === 0 && c === 0 && d === 0 && e === 0 && (f === 0xffff || f === 0)) {
+    return isPrivateV4(`${g >> 8}.${g & 0xff}.${h >> 8}.${h & 0xff}`);
+  }
+  if ((a & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((a & 0xfe00) === 0xfc00) return true; // fc00::/7 unique local
+  return false;
 }
 
 /**

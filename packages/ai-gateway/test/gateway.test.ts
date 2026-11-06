@@ -197,3 +197,70 @@ test('draft output is flattened to ASCII for plain-text email', async () => {
   // Accented names are letters, not punctuation - they must survive.
   assert.equal(toAscii('José Müller'), 'José Müller');
 });
+
+test('baseUrl normalisation accepts what people paste and rejects smuggled keys', () => {
+  assert.equal(parseBaseUrl('https://api.example.com'), 'https://api.example.com/v1');
+  assert.equal(parseBaseUrl('https://api.example.com/'), 'https://api.example.com/v1');
+  assert.equal(parseBaseUrl('https://api.example.com/v1/'), 'https://api.example.com/v1');
+  assert.equal(parseBaseUrl('http://127.0.0.1:31415'), 'http://127.0.0.1:31415/v1');
+
+  assert.throws(() => parseBaseUrl('https://user:pass@api.example.com/v1'), /Bearer token field, not the URL/);
+  assert.throws(() => parseBaseUrl('https://api.example.com/v1?api_key=abc'), /not the URL query/);
+  assert.throws(() => parseBaseUrl('https://api.example.com/v1?token=abc'), /not the URL query/);
+  assert.throws(() => parseBaseUrl('ftp://api.example.com'), /http or https/);
+  assert.throws(() => parseBaseUrl('not a url'), /absolute http\(s\) URL/);
+  assert.throws(() => parseBaseUrl('http://169.254.169.254/latest'), /cloud metadata/);
+  assert.throws(() => parseBaseUrl('http://metadata.google.internal/'), /cloud metadata/);
+});
+
+test('the SSRF guard blocks loopback, link-local and RFC1918 unless explicitly opted in', async () => {
+  const { assertPublicEndpoint } = await import('../src/index.js');
+  const savedOffline = process.env.OMNIGTM_OFFLINE_TEST;
+  const savedAllow = process.env.OMNIGTM_ALLOW_PRIVATE_ENDPOINTS;
+  delete process.env.OMNIGTM_OFFLINE_TEST;
+  delete process.env.OMNIGTM_ALLOW_PRIVATE_ENDPOINTS;
+
+  try {
+    const blocked: Array<[string, RegExp]> = [
+      ['http://localhost/v1', /private host/],
+      ['http://app.localhost/v1', /private host/],
+      ['http://box.local/v1', /private host/],
+      ['http://metadata.internal/v1', /private host/],
+      ['http://127.0.0.1/v1', /private address/],
+      ['http://127.9.9.9/v1', /private address/],
+      ['http://0.0.0.0/v1', /private address/],
+      ['http://10.1.2.3/v1', /private address/],
+      ['http://192.168.0.10/v1', /private address/],
+      ['http://172.16.5.4/v1', /private address/],
+      ['http://172.31.255.1/v1', /private address/],
+      ['http://169.254.1.1/v1', /private address/],
+      ['http://[::1]/v1', /private address/],
+      ['http://[fe80::1]/v1', /private address/],
+      ['http://[fd00::1]/v1', /private address/],
+      ['http://[::ffff:127.0.0.1]/v1', /private address/],
+      // WHATWG URL rewrites the dotted form to hex, so this is the shape that
+      // actually reaches the guard.
+      ['http://[::ffff:7f00:1]/v1', /private address/],
+      ['http://[0:0:0:0:0:ffff:7f00:1]/v1', /private address/],
+      ['http://[::ffff:a00:1]/v1', /private address/],
+    ];
+    for (const [url, expected] of blocked) {
+      await assert.rejects(() => assertPublicEndpoint(url), expected, `${url} should be blocked`);
+    }
+
+    // 172.32.x is outside the RFC1918 172.16/12 block and is a literal IP, so
+    // resolution needs no network.
+    await assert.doesNotReject(() => assertPublicEndpoint('http://172.32.0.1/v1'));
+    await assert.doesNotReject(() => assertPublicEndpoint('http://8.8.8.8/v1'));
+
+    // Self-hosted FreeLLMAPI on loopback is the documented opt-in.
+    process.env.OMNIGTM_ALLOW_PRIVATE_ENDPOINTS = '1';
+    await assert.doesNotReject(() => assertPublicEndpoint('http://127.0.0.1:31415/v1'));
+    await assert.doesNotReject(() => assertPublicEndpoint('http://localhost:31415/v1'));
+  } finally {
+    if (savedOffline === undefined) delete process.env.OMNIGTM_OFFLINE_TEST;
+    else process.env.OMNIGTM_OFFLINE_TEST = savedOffline;
+    if (savedAllow === undefined) delete process.env.OMNIGTM_ALLOW_PRIVATE_ENDPOINTS;
+    else process.env.OMNIGTM_ALLOW_PRIVATE_ENDPOINTS = savedAllow;
+  }
+});

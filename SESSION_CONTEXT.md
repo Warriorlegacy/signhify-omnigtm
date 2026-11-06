@@ -59,7 +59,11 @@ Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
   `SENT` via `BREVO_HTTP`, `outreach_events` recorded
   `<202611060639.24549591684@smtp-relay.mailin.fr>`, Brevo's own log matches the
   subject and timestamp. Test opportunity was reverted to `DISCOVERED` / no email.
-- CI green (`Typecheck, test, eval, build`), 34 tests
+- SSRF guard hardened and covered: `[::ffff:127.0.0.1]` is rewritten by WHATWG URL
+  to `[::ffff:7f00:1]` and slipped past the private-address check; mapped and
+  IPv4-compatible forms now decode, `fe80::/10` and `fc00::/7` are masked
+  properly, and hostnames starting with `fc`/`fd` are no longer misread as IPv6
+- CI green (`Typecheck, test, eval, build`), 36 tests
 
 ## Provider chain
 
@@ -145,7 +149,7 @@ already serverless-compatible if the media routes are split out later.
 npm install
 npm run db:migrate      # SQLite by default; set DATABASE_URL for Postgres
 npm run dev             # dashboard on http://localhost:3000
-npm run verify          # typecheck + 34 tests + 7/7 eval + production build
+npm run verify          # typecheck + 36 tests + 7/7 eval + production build
 npm run mcp             # stdio MCP server
 npm run harvest         # ATS harvest (OMNIGTM_LLM=0 for heuristic-only)
 ```
