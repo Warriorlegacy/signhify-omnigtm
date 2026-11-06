@@ -52,7 +52,8 @@ Log in at `/login` with `OMNIGTM_DASHBOARD_TOKEN`. Cookie is `omnigtm_session`
   which overflowed at a 1.79e12 ms epoch and failed every LLM call); cache row written,
   telemetry `ok=1`
 - Outreach drafts are ASCII-flattened: a live Groq draft had 0 typographic characters
-- CI green (`Typecheck, test, eval, build`), 33 tests
+- Brevo HTTP transport live: settings shows `Brevo HTTP`, real send returned 201 + messageId
+- CI green (`Typecheck, test, eval, build`), 34 tests
 
 ## Provider chain
 
@@ -121,10 +122,11 @@ already serverless-compatible if the media routes are split out later.
 ## Still requires human action
 
 1. **Netlify**: `netlify login`, then deploy `apps/landing` for a second mirror.
-2. **Email**: `BREVO_SMTP_KEY` is not set. The harvested `BREVO_API_KEY` is a
-   transactional API key, not the SMTP relay key the app expects. Add the SMTP
-   key (and `BREVO_SMTP_USER`) to enable real sends; outreach stays dry-run
-   until then.
+2. **Email**: solved — no SMTP key needed. `packages/outbound` now sends through
+   the Brevo **HTTP** API (`POST /v3/smtp/email`) using `BREVO_API_KEY`, which is
+   set on Render. Mailboxes default to `BREVO_HTTP` when that key exists. Live
+   check returned `201` with a real `messageId`. `BREVO_SMTP_*` remain supported
+   but optional (they need a separate `xsmtpsib-` key).
 3. **Social publishing**: Instagram credentials are set but posting is still
    explicit and confirm-gated. LinkedIn/YouTube tokens are not configured.
 4. **Custom gateway**: add the public URL + unified key in Settings if you want
@@ -136,7 +138,7 @@ already serverless-compatible if the media routes are split out later.
 npm install
 npm run db:migrate      # SQLite by default; set DATABASE_URL for Postgres
 npm run dev             # dashboard on http://localhost:3000
-npm run verify          # typecheck + 30 tests + 7/7 eval + production build
+npm run verify          # typecheck + 34 tests + 7/7 eval + production build
 npm run mcp             # stdio MCP server
 npm run harvest         # ATS harvest (OMNIGTM_LLM=0 for heuristic-only)
 ```
