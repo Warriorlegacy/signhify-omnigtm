@@ -157,7 +157,7 @@ manual editor yet — so dry runs work, but real sends are blocked until a conta
 - 49 tests, 7/7 eval, production build green. Verified locally: `PATCH` returns 200 and persists the
   email; the inbound webhook still suppresses STOP/bounces and now reports `replied`.
 
-### Fourth pass — Brevo nested payload support (`54a933d`)
+### Fourth pass — Brevo nested payload support (`653dea6`)
 
 - **Brevo transactional event webhooks nest replies inside `payload.message.headers`**, not at the
   top level. Brevo sends `{ event, email, payload: { message: { headers: { "text-plain": "...",
