@@ -61,13 +61,53 @@ test('a dry-run dispatch is recorded and moves the opportunity to SENT', async (
   const draft = await createDraft(repo, gateway, id);
   assert.match(draft.body, /Reply STOP/);
 
-  const result = await sendDraft(repo, { opportunityId: id, subject: draft.subject, body: draft.body, dryRun: true });
+  const stored = await repo.getOpportunity(id);
+  assert.equal(stored?.draft_subject, draft.subject, 'the exact draft subject is persisted');
+  assert.equal(stored?.draft_body, draft.body, 'the exact draft body is persisted');
+
+  // Omitting subject/body must reuse the persisted draft, not fail or resend a
+  // model call. This is the path the dashboard's review panel uses.
+  const result = await sendDraft(repo, { opportunityId: id, dryRun: true });
   assert.equal(result.status, 'DRY_RUN');
 
   const events = await repo.listOutreach(id);
   assert.equal(events.length, 1);
   assert.equal(events[0].status, 'DRY_RUN');
   assert.equal((await repo.getOpportunity(id))?.stage, 'DRAFT_READY');
+});
+
+test('a second real send is refused unless allowResend is explicit', async () => {
+  const workspace = await repo.ensureWorkspace();
+  const { id } = await repo.upsertOpportunity({
+    workspaceId: workspace.id,
+    track: 'B2B_SPRINT',
+    source: 'test',
+    externalId: 'duplicate-send',
+    companyName: 'Twice Studio',
+    roleTitle: 'Launch film',
+    companyUrl: 'https://twice.example',
+    sourceUrl: 'https://twice.example/contact',
+    contactEmail: 'hello@twice.example',
+    descriptionSnippet: 'Ships launch films.',
+  });
+
+  await repo.insertOutreach({
+    opportunityId: id,
+    senderMailbox: 'owner@studio.test',
+    relayProvider: 'BREVO_HTTP',
+    subject: 'First send',
+    bodyText: 'Body',
+    status: 'SENT',
+  });
+
+  await assert.rejects(
+    () => sendDraft(repo, { opportunityId: id, subject: 'Second send', body: 'Body', dryRun: false }),
+    /already received a real email/
+  );
+
+  // Dry runs never leave the building, so they stay available for inspection.
+  const dry = await sendDraft(repo, { opportunityId: id, subject: 'Second send', body: 'Body', dryRun: true });
+  assert.equal(dry.status, 'DRY_RUN');
 });
 
 test('mailbox configuration defaults to none when nothing is set', () => {

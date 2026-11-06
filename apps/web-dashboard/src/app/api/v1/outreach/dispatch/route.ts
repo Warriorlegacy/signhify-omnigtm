@@ -10,6 +10,7 @@ interface Body {
   body?: string;
   confirm?: boolean;
   dryRun?: boolean;
+  allowResend?: boolean;
   mailboxEmail?: string;
 }
 
@@ -24,15 +25,13 @@ export async function POST(request: Request): Promise<Response> {
     if (payload.confirm !== true) {
       return Response.json({ ok: false, error: 'confirm: true is required to dispatch outreach' }, { status: 428 });
     }
-    if (!payload.subject || !payload.body) {
-      return Response.json({ ok: false, error: 'subject and body are required - generate a draft first' }, { status: 400 });
-    }
     const repo = await getRepo();
     const result = await sendDraft(repo, {
       opportunityId: payload.opportunityId,
       subject: payload.subject,
       body: payload.body,
       dryRun: payload.dryRun !== false,
+      allowResend: payload.allowResend === true,
       mailboxEmail: payload.mailboxEmail,
     });
     return Response.json({ ok: result.status !== 'FAILED', result });

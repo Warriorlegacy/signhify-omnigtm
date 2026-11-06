@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getRepo } from '@/lib/api';
 import { ActionButton } from '@/components/ActionButton';
+import { OutreachPanel } from '@/components/OutreachPanel';
 import { parseReasons, scoreBand, stageTone } from '@/lib/format';
 import type { Stage, Track } from '@omnigtm/core';
 
@@ -8,6 +9,7 @@ export const dynamic = 'force-dynamic';
 
 const TRACKS: (Track | '')[] = ['', 'REMOTE_JOB', 'B2B_SPRINT'];
 const STAGES: (Stage | '')[] = ['', 'DISCOVERED', 'PREVIEW_BUILT', 'DRAFT_READY', 'SENT', 'REPLIED', 'BOOKED', 'CLOSED_WON'];
+const SENT_STAGES: Stage[] = ['SENT', 'FOLLOW_UP_1', 'REPLIED', 'BOOKED', 'CLOSED_WON'];
 
 export default async function OpportunitiesPage({
   searchParams,
@@ -112,16 +114,24 @@ export default async function OpportunitiesPage({
                       <div className="dim">{row.source}</div>
                       <a className="muted" href={row.source_url} target="_blank" rel="noreferrer noopener">Open source ↗</a>
                     </td>
-                    <td>
-                      <div className="row" style={{ gap: 6 }}>
-                        <ActionButton label="Draft" path="/api/v1/outreach/draft" body={{ opportunityId: row.id }} size="sm" />
-                        <ActionButton
-                          label="Dry-run send"
-                          path="/api/v1/outreach/dispatch"
-                          body={{ opportunityId: row.id, confirm: true, dryRun: true }}
-                          size="sm"
-                          variant="ghost"
-                          confirmText={`Record a dry-run send for ${row.company_name}? Nothing leaves the server.`}
+                    <td style={{ minWidth: 340 }}>
+                      <div className="grid" style={{ gap: 8 }}>
+                        <div className="row" style={{ gap: 6 }}>
+                          <ActionButton
+                            label={row.draft_subject || row.draft_body ? 'Regenerate' : 'Draft'}
+                            path="/api/v1/outreach/draft"
+                            body={{ opportunityId: row.id }}
+                            size="sm"
+                          />
+                          {row.contact_email ? <span className="small dim">{row.contact_email}</span> : null}
+                        </div>
+                        <OutreachPanel
+                          opportunityId={row.id}
+                          company={row.company_name}
+                          subject={row.draft_subject}
+                          body={row.draft_body}
+                          contactEmail={row.contact_email}
+                          alreadySent={SENT_STAGES.includes(row.stage)}
                         />
                       </div>
                     </td>

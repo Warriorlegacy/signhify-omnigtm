@@ -104,13 +104,14 @@ export function buildServer(ctx: ToolContext): McpServer {
     {
       title: 'Dispatch outreach email',
       description:
-        'Irreversible send. Without confirm:true it only returns the exact draft for review. With confirm:true it sends through the configured mailbox relay (dryRun defaults to true).',
+        'Irreversible send. Without confirm:true it only returns the exact draft for review. With confirm:true it sends through the configured mailbox relay (dryRun defaults to true). A second real send to the same opportunity is refused unless allowResend:true is passed.',
       inputSchema: {
         opportunityId: z.string().min(1),
         subject: z.string().max(140).optional(),
         body: z.string().max(4000).optional(),
         confirm: z.boolean().optional(),
         dryRun: z.boolean().optional(),
+        allowResend: z.boolean().optional().describe('Permit a deliberate follow-up after a real send'),
         mailboxEmail: z.string().email().optional(),
       },
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },

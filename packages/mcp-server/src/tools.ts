@@ -157,7 +157,7 @@ export async function draftOutreachTool(
  */
 export async function dispatchOutreach(
   ctx: ToolContext,
-  args: { opportunityId: string; subject?: string; body?: string; confirm?: boolean; dryRun?: boolean; mailboxEmail?: string }
+  args: { opportunityId: string; subject?: string; body?: string; confirm?: boolean; dryRun?: boolean; allowResend?: boolean; mailboxEmail?: string }
 ): Promise<ToolOutcome> {
   const opp = await ctx.repo.getOpportunity(args.opportunityId);
   if (!opp) throw new Error(`Opportunity ${args.opportunityId} not found`);
@@ -189,6 +189,7 @@ export async function dispatchOutreach(
     subject,
     body,
     dryRun: args.dryRun !== false,
+    allowResend: args.allowResend === true,
     mailboxEmail: args.mailboxEmail,
   });
   return { sideEffect: 'write', data: result };

@@ -41,6 +41,33 @@ test('safeEqual compares without early exit', () => {
   assert.equal(safeEqual('short', 'longer-value'), false);
 });
 
+test('retention sweep removes expired cache rows and keeps live ones', async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+
+  const previousPath = process.env.OMNIGTM_DB_PATH;
+  process.env.OMNIGTM_OFFLINE_TEST = '1';
+  process.env.OMNIGTM_DB_PATH = join(mkdtempSync(join(tmpdir(), 'omnigtm-retain-')), 'retain.db');
+  try {
+    const { Repo, closeDb } = await import('../src/index.js');
+    const repo = await Repo.open();
+    await repo.cachePut('expired-key', { text: 'old' }, -5);
+    await repo.cachePut('live-key', { text: 'new' }, 60);
+
+    const removed = await repo.pruneExpired();
+    assert.equal(removed.cache, 1, 'only the expired cache row is deleted');
+
+    const live = (await repo.cacheGet('live-key')) as { text: string } | null;
+    assert.deepEqual(live, { text: 'new' });
+    assert.equal(await repo.cacheGet('expired-key'), null);
+    await closeDb();
+  } finally {
+    if (previousPath === undefined) delete process.env.OMNIGTM_DB_PATH;
+    else process.env.OMNIGTM_DB_PATH = previousPath;
+  }
+});
+
 test('cache expiry fits a millisecond epoch (Postgres INTEGER would overflow)', async () => {
   const { readFileSync, mkdtempSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');

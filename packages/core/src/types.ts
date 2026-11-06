@@ -45,6 +45,8 @@ export interface Opportunity {
   fit_reasons: string;
   stage: Stage;
   preview_asset_url: string | null;
+  draft_subject: string | null;
+  draft_body: string | null;
   created_at: string;
   updated_at: string;
 }

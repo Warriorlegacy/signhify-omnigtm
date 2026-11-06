@@ -59,6 +59,10 @@ CREATE TABLE IF NOT EXISTS opportunities (
   fit_reasons TEXT NOT NULL DEFAULT '[]',
   stage TEXT NOT NULL DEFAULT 'DISCOVERED',
   preview_asset_url TEXT,
+  -- The generated draft is persisted so the UI and API can review and send the
+  -- exact same copy instead of re-spending a model call.
+  draft_subject TEXT,
+  draft_body TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -160,6 +164,7 @@ CREATE TABLE IF NOT EXISTS llm_cache (
   expires_at BIGINT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_cache_expires ON llm_cache(expires_at);
 
 CREATE TABLE IF NOT EXISTS suppressions (
   email TEXT PRIMARY KEY,
@@ -294,6 +299,17 @@ export async function getDriver(): Promise<Driver> {
         await driver.exec('ALTER TABLE llm_cache ALTER COLUMN expires_at TYPE BIGINT').catch((error) => {
           log.warn('llm_cache.expires_at repair failed', { message: error instanceof Error ? error.message : String(error) });
         });
+      }
+      // Additive columns for databases that predate the persisted draft. Both
+      // dialects reject a duplicate ADD COLUMN; that exact error is the no-op
+      // we want, and anything else must still surface.
+      for (const column of ['draft_subject', 'draft_body']) {
+        try {
+          await driver.exec(`ALTER TABLE opportunities ADD COLUMN ${column} TEXT`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (!/duplicate column name|already exists/i.test(message)) throw error;
+        }
       }
       log.info('database ready', { dialect: driver.dialect });
       return driver;
@@ -453,6 +469,16 @@ export class Repo {
     );
   }
 
+  /** Persist the exact copy that was generated, so review and send agree. */
+  async saveDraft(id: string, subject: string, body: string): Promise<void> {
+    await this.driver.run('UPDATE opportunities SET draft_subject = ?, draft_body = ?, updated_at = ? WHERE id = ?', [
+      subject,
+      body,
+      nowIso(),
+      id,
+    ]);
+  }
+
   // ---------------------------------------------------------------- outreach
   async insertOutreach(e: {
     opportunityId: string;
@@ -493,6 +519,12 @@ export class Repo {
       return this.driver.all<OutreachEvent>('SELECT * FROM outreach_events WHERE opportunity_id = ? ORDER BY created_at DESC LIMIT ?', [opportunityId, limit]);
     }
     return this.driver.all<OutreachEvent>('SELECT * FROM outreach_events ORDER BY created_at DESC LIMIT ?', [limit]);
+  }
+
+  /** A real (non-dry-run) send has already happened for this opportunity. */
+  async hasSentOutreach(opportunityId: string): Promise<boolean> {
+    const row = await this.driver.get("SELECT id FROM outreach_events WHERE opportunity_id = ? AND status = 'SENT' LIMIT 1", [opportunityId]);
+    return Boolean(row);
   }
 
   async sentTodayCount(mailbox: string): Promise<number> {
@@ -667,6 +699,18 @@ export class Repo {
     } catch (error) {
       log.warn('cachePut failed', { message: error instanceof Error ? error.message : String(error) });
     }
+  }
+
+  /**
+   * Retention. llm_cache rows are only deleted when the same key is read again,
+   * so keys nobody asks for again would live forever; llm_usage is append-only.
+   * Run from the scheduled pipeline, not per request.
+   */
+  async pruneExpired(opts: { usageDays?: number } = {}): Promise<{ cache: number; usage: number }> {
+    const usageCutoff = new Date(Date.now() - (opts.usageDays ?? 90) * 86_400_000).toISOString();
+    const cache = await this.driver.run('DELETE FROM llm_cache WHERE expires_at < ?', [Date.now()]);
+    const usage = await this.driver.run('DELETE FROM llm_usage WHERE created_at < ?', [usageCutoff]);
+    return { cache: cache.changes, usage: usage.changes };
   }
 
   // ---------------------------------------------------------------- misc
