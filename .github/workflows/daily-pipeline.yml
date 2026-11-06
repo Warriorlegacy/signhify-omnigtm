@@ -36,6 +36,18 @@ jobs:
 
       - run: npm ci
 
+      - name: Require a durable database
+        # Without this, Repo.open() silently falls back to a SQLite file inside the
+        # runner and every harvested row is discarded when the job ends. A green
+        # run must mean the data reached Postgres.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL is not set; harvest would write to an ephemeral SQLite file inside the runner."
+            exit 1
+          fi
+
       - name: Migrate + seed
         run: npm run db:migrate
         env:
@@ -50,6 +62,11 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          APINEX_API_KEY: ${{ secrets.APINEX_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          OMNIGTM_PUBLIC_BASE_URL: ${{ vars.OMNIGTM_PUBLIC_BASE_URL }}
           OMNIGTM_LLM: ${{ inputs.useLlm == false && '0' || '1' }}
 
       - name: Eval gate
