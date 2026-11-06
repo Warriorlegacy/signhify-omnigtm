@@ -52,3 +52,42 @@ test('a payload without an address is ignored instead of throwing', () => {
   assert.deepEqual(parseInboundJson({ text: 'STOP' }), { replies: [], events: [] });
   assert.deepEqual(parseInboundJson(null), { replies: [], events: [] });
 });
+
+test('Brevo nested payload message headers are unwrapped for reply and address', () => {
+  const parsed = parseInboundJson({
+    event: 'rejected',
+    email: 'report@brevo.com',
+    payload: {
+      message: {
+        headers: {
+          'text-plain': 'STOP',
+          subject: 'Re: your note',
+          sender: { email: 'buyer@example.com', name: 'Buyer' },
+        },
+      },
+    },
+  });
+  assert.equal(parsed.replies.length, 1);
+  assert.equal(parsed.replies[0].email, 'buyer@example.com');
+  assert.ok(parsed.replies[0].text.startsWith('STOP'));
+  assert.equal(parsed.events.length, 0);
+});
+
+test('Brevo nested payload with hard_bounce event suppresses the top-level email', () => {
+  const parsed = parseInboundJson({
+    event: 'hard_bounce',
+    email: 'gone@example.com',
+    payload: {
+      message: {
+        headers: {
+          'text-plain': '550 mailbox unavailable',
+        },
+      },
+    },
+  });
+  // Events are extracted from the top-level fields, not from nested payload
+  assert.equal(parsed.events.length, 1);
+  assert.equal(parsed.events[0].email, 'gone@example.com');
+  assert.equal(parsed.events[0].event, 'hard_bounce');
+  assert.equal(parsed.replies.length, 0);
+});

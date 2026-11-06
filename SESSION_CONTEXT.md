@@ -157,6 +157,20 @@ manual editor yet — so dry runs work, but real sends are blocked until a conta
 - 49 tests, 7/7 eval, production build green. Verified locally: `PATCH` returns 200 and persists the
   email; the inbound webhook still suppresses STOP/bounces and now reports `replied`.
 
+### Fourth pass — Brevo nested payload support (`54a933d`)
+
+- **Brevo transactional event webhooks nest replies inside `payload.message.headers`**, not at the
+  top level. Brevo sends `{ event, email, payload: { message: { headers: { "text-plain": "...",
+  subject: "...", sender: { email, name } } } } }`. The previous parser only checked top-level
+  fields, so STOP replies through Brevo's event webhook silently did nothing (suppressed: 0).
+- Added `unwrapMessagePayload` that flattens `payload.message.headers` into a top-level-like object
+  (sanitising hyphens from keys: `text-plain` → `textplain`) so both `addressOf` and `textOf` can
+  consume it recursively.
+- `addressOf` falls back to the nested `sender.email` when no direct field matches.
+- `reduce` prefers the nested sender address for reply records (Brevo's top-level `email` is the
+  system report address, not the actual replier).
+- 51 tests, 7/7 eval, production build green.
+
 ## Known gaps
 
 - **No enrichment provider.** `contact_email` is manual only, so every live send starts with an
@@ -269,7 +283,7 @@ already serverless-compatible if the media routes are split out later.
 npm install
 npm run db:migrate      # SQLite by default; set DATABASE_URL for Postgres
 npm run dev             # dashboard on http://localhost:3000
-npm run verify          # typecheck + 47 tests + 7/7 eval + production build
+npm run verify          # typecheck + 51 tests + 7/7 eval + production build
 npm run mcp             # stdio MCP server
 npm run harvest         # ATS harvest (OMNIGTM_LLM=0 for heuristic-only)
 ```

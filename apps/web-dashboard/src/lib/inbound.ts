@@ -51,6 +51,31 @@ function pick(record: Record<string, unknown>, keys: string[]): string | undefin
   return undefined;
 }
 
+/**
+ * Brevo/SendGrid event payloads nest the reply inside `payload.message`.
+ * Brevo headers: `{ "text-plain": "...", "text-html": "...", "subject": "..." }`,
+ * sender: `{ "email": "foo@bar.com", "name": "Foo" }`.
+ */
+function unwrapMessagePayload(record: Record<string, unknown>): Record<string, unknown> | undefined {
+  const payload = (record as Record<string, unknown>).payload;
+  if (!payload || typeof payload !== 'object') return undefined;
+  const message = (payload as Record<string, unknown>).message;
+  if (!message || typeof message !== 'object') return undefined;
+  const headers = (message as Record<string, unknown>).headers;
+  if (!headers || typeof headers !== 'object') return undefined;
+  const h = headers as Record<string, unknown>;
+  const flat: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(h)) {
+    flat[key.replace(/[^A-Za-z0-9_]/g, '')] = value; // text-plain -> textplain
+  }
+  flat['subject'] = pick(h, ['subject']) ?? flat.subject;
+  const sender = h.sender;
+  if (sender && typeof sender === 'object' && (sender as Record<string, unknown>).email) {
+    flat.from = (sender as Record<string, unknown>).email;
+  }
+  return flat;
+}
+
 function addressOf(record: Record<string, unknown>): string | null {
   const direct = pick(record, ['from', 'sender', 'From', 'Sender', 'email', 'Email', 'from_email', 'fromEmail']);
   if (direct) {
@@ -59,15 +84,20 @@ function addressOf(record: Record<string, unknown>): string | null {
   }
   const full = record.FromFull;
   if (full && typeof full === 'object') return extractEmail((full as Record<string, unknown>).Email);
+  // Brevo nests the reply sender inside payload.message.headers.sender.
+  const wrapped = unwrapMessagePayload(record);
+  if (wrapped) return addressOf(wrapped);
   return null;
 }
 
 function textOf(record: Record<string, unknown>): string {
+  const wrapped = unwrapMessagePayload(record);
+  if (wrapped) return textOf(wrapped);
   // Body first. `handleInboundReply` anchors STOP at the start on purpose, so a
   // quoted "Reply STOP" footer further down a thread must not suppress the
   // sender. A subject-only STOP still matches through the leading whitespace.
   return [
-    pick(record, ['text', 'TextBody', 'body-plain', 'body', 'Body', 'stripped-text']),
+    pick(record, ['text', 'TextBody', 'body-plain', 'body', 'Body', 'stripped-text', 'textplain', 'bodyplain']),
     pick(record, ['subject', 'Subject']),
   ]
     .filter(Boolean)
@@ -84,8 +114,17 @@ function reduce(records: Record<string, unknown>[]): ParsedInbound {
       parsed.events.push({ email, event });
       continue;
     }
+    // For replies from Brevo payloads, the top-level `email` is a system
+    // address (e.g. report@brevo.com); prefer the nested sender from the
+    // message headers when available.
+    let replyEmail = email;
+    const wrapped = unwrapMessagePayload(record);
+    if (wrapped) {
+      const nested = addressOf(wrapped);
+      if (nested) replyEmail = nested;
+    }
     const text = textOf(record);
-    if (text) parsed.replies.push({ email, text });
+    if (text) parsed.replies.push({ email: replyEmail, text });
   }
   return parsed;
 }

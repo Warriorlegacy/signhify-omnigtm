@@ -50,9 +50,14 @@ export async function POST(request: Request): Promise<Response> {
 
   const repo = await getRepo();
   let suppressed = 0;
+  let replied = 0;
   for (const reply of parsed.replies) {
     const result = await handleInboundReply(repo, { from: reply.email, text: reply.text });
-    if (result.suppressed) suppressed += 1;
+    if (result.suppressed) {
+      suppressed += 1;
+      continue;
+    }
+    replied += await repo.markReplied(reply.email);
   }
   for (const event of parsed.events) {
     if (!SUPPRESSION_EVENTS.has(event.event)) continue;
@@ -60,5 +65,5 @@ export async function POST(request: Request): Promise<Response> {
     suppressed += 1;
   }
 
-  return json({ ok: true, replies: parsed.replies.length, events: parsed.events.length, suppressed });
+  return json({ ok: true, replies: parsed.replies.length, events: parsed.events.length, replied, suppressed });
 }
